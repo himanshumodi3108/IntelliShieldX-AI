@@ -85,3 +85,4 @@ scripts/
 scripts/seed-models.js
 scripts/seed-admin.js
 scripts/initPricingPlans.js
+/scripts/

@@ -18,6 +18,9 @@ Node.js/Express backend API server for IntelliShieldX platform.
 - Repository management (GitHub integration)
 - Documentation generation
 - Rate limiting for guest users
+- Admin dashboard API endpoints
+- Admin authentication and authorization
+- Admin activity logging
 
 ## Setup
 
@@ -167,6 +170,42 @@ See `.env.example` for all required environment variables.
 ### Dashboard
 - `GET /api/dashboard/stats` - Get dashboard statistics (supports optional authentication)
 
+### Admin (Protected - Admin Only)
+- `POST /api/admin/auth/login` - Admin login
+- `GET /api/admin/auth/profile` - Get admin profile
+- `POST /api/admin/auth/change-password` - Change admin password
+- `GET /api/admin/users` - List users (with pagination, search, filters)
+- `GET /api/admin/users/:id` - Get user details
+- `PUT /api/admin/users/:id` - Update user
+- `POST /api/admin/users/:id/suspend` - Suspend user
+- `POST /api/admin/users/:id/activate` - Activate user
+- `POST /api/admin/users/:id/change-plan` - Change user plan
+- `DELETE /api/admin/users/:id` - Delete user
+- `GET /api/admin/subscriptions` - List subscriptions
+- `GET /api/admin/subscriptions/:id` - Get subscription details
+- `POST /api/admin/subscriptions/:id/refund` - Process refund
+- `GET /api/admin/subscriptions/analytics/revenue` - Revenue analytics
+- `GET /api/admin/analytics/overview` - Overview analytics
+- `GET /api/admin/analytics/users` - User analytics
+- `GET /api/admin/analytics/usage` - Usage analytics
+- `GET /api/admin/models` - List AI models
+- `POST /api/admin/models` - Create model
+- `PUT /api/admin/models/:id` - Update model
+- `DELETE /api/admin/models/:id` - Delete model
+- `GET /api/admin/content/scans` - List scans
+- `DELETE /api/admin/content/scans/:id` - Delete scan
+- `GET /api/admin/content/documentation` - List documentation
+- `DELETE /api/admin/content/documentation/:id` - Delete documentation
+- `GET /api/admin/content/conversations` - List conversations
+- `DELETE /api/admin/content/conversations/:id` - Delete conversation
+- `GET /api/admin/system/health` - System health check
+- `GET /api/admin/system/metrics` - System metrics
+- `GET /api/admin/settings` - Get settings
+- `GET /api/admin/reports/revenue` - Revenue report
+- `GET /api/admin/reports/users` - User report
+- `GET /api/admin/reports/usage` - Usage report
+- `GET /api/admin/logs` - Admin activity logs
+
 ## Project Structure
 
 ```
@@ -177,6 +216,7 @@ server/
 │   │   └── oauth.js     # OAuth configuration
 │   ├── middleware/      # Express middleware
 │   │   ├── auth.js      # Authentication middleware
+│   │   ├── adminAuth.js # Admin authentication middleware
 │   │   └── errorHandler.js
 │   ├── models/          # MongoDB models
 │   │   ├── User.js
@@ -187,7 +227,9 @@ server/
 │   │   ├── ConnectedAccount.js
 │   │   ├── Repository.js
 │   │   ├── Documentation.js
-│   │   └── GuestRateLimit.js
+│   │   ├── GuestRateLimit.js
+│   │   ├── AdminUser.js
+│   │   └── AdminLog.js
 │   ├── routes/          # API routes
 │   │   ├── auth.js
 │   │   ├── chat.js
@@ -197,7 +239,19 @@ server/
 │   │   ├── repositories.js
 │   │   ├── documentation.js
 │   │   ├── payments.js
-│   │   └── dashboard.js
+│   │   ├── dashboard.js
+│   │   └── admin/        # Admin routes
+│   │       ├── index.js
+│   │       ├── auth.js
+│   │       ├── users.js
+│   │       ├── subscriptions.js
+│   │       ├── analytics.js
+│   │       ├── models.js
+│   │       ├── content.js
+│   │       ├── system.js
+│   │       ├── settings.js
+│   │       ├── reports.js
+│   │       └── logs.js
 │   ├── services/        # Business logic
 │   │   ├── oauthService.js
 │   │   ├── mfaService.js
@@ -206,10 +260,13 @@ server/
 │   │   ├── emailService.js
 │   │   ├── razorpayService.js
 │   │   ├── passwordResetService.js
-│   │   └── guestRateLimitService.js
+│   │   ├── guestRateLimitService.js
+│   │   └── adminLogService.js
 │   └── index.js         # Entry point
 ├── uploads/             # Uploaded files
 ├── scripts/             # Utility scripts
+│   ├── seed-models.js   # Seed AI models
+│   └── seed-admin.js    # Create admin user
 └── package.json
 ```
 
@@ -301,6 +358,43 @@ The email service sends notifications for:
 - Model schemas
 - Project structure
 - Chat messages
+
+### AdminUser
+- Admin account information
+- Role (admin/super_admin)
+- Permissions
+- Last login tracking
+
+### AdminLog
+- Admin action audit trail
+- IP address and user agent tracking
+- Resource and action details
+
+## Admin Dashboard
+
+The backend includes a comprehensive admin API for managing the platform. See `ADMIN_SETUP.md` for detailed setup instructions.
+
+### Creating Admin User
+
+```bash
+node scripts/seed-admin.js [email] [password] [name] [role]
+```
+
+Example:
+```bash
+node scripts/seed-admin.js admin@intellishieldx.ai admin123 "Admin User" super_admin
+```
+
+### Admin Models
+
+- **AdminUser**: Admin user accounts with role-based permissions
+- **AdminLog**: Audit trail of all admin actions
+
+### Admin Middleware
+
+- `authenticateAdmin`: Verify admin authentication
+- `requireSuperAdmin`: Require super admin role
+- `requirePermission`: Check specific permissions
 
 ## Development
 

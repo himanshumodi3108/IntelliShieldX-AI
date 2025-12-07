@@ -94,7 +94,130 @@ router.post("/login", async (req, res, next) => {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
+    // Check if MFA is enabled
+    if (user.mfaEnabled && user.mfaMethod) {
+      // Generate a temporary token for MFA verification (short-lived, 10 minutes)
+      const mfaToken = jwt.sign(
+        { 
+          userId: user._id.toString(), 
+          email: user.email,
+          purpose: "mfa_verification"
+        },
+        process.env.JWT_SECRET || "your-secret-key",
+        { expiresIn: "10m" }
+      );
+
+      // Send OTP if method is email or SMS
+      if (user.mfaMethod === "email") {
+        const { generateAndStoreOTP, sendEmailOTP } = await import("../services/mfaService.js");
+        const otp = generateAndStoreOTP(user._id.toString(), "email");
+        await sendEmailOTP(user.email, otp);
+      } else if (user.mfaMethod === "sms") {
+        if (!user.phone) {
+          return res.status(400).json({ error: "Phone number not set for SMS MFA" });
+        }
+        const { generateAndStoreOTP, sendSMSOTP } = await import("../services/mfaService.js");
+        const otp = generateAndStoreOTP(user._id.toString(), "sms");
+        await sendSMSOTP(user.phone, otp);
+      }
+
+      return res.json({
+        requiresMFA: true,
+        mfaMethod: user.mfaMethod,
+        mfaToken, // Temporary token for MFA verification
+        message: user.mfaMethod === "email" 
+          ? "Verification code sent to your email" 
+          : user.mfaMethod === "sms"
+          ? "Verification code sent to your phone"
+          : "Please enter your authenticator code",
+      });
+    }
+
+    // MFA not enabled, proceed with normal login
     // Generate token
+    const token = jwt.sign(
+      { userId: user._id, email: user.email, plan: user.plan },
+      process.env.JWT_SECRET || "your-secret-key",
+      { expiresIn: "7d" }
+    );
+
+    res.json({
+      token,
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        plan: user.plan,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Verify MFA and complete login
+router.post("/login/verify-mfa", async (req, res, next) => {
+  try {
+    const { mfaToken, code } = req.body;
+
+    if (!mfaToken || !code) {
+      return res.status(400).json({ error: "MFA token and verification code are required" });
+    }
+
+    // Verify the temporary MFA token
+    let decoded;
+    try {
+      decoded = jwt.verify(mfaToken, process.env.JWT_SECRET || "your-secret-key");
+      if (decoded.purpose !== "mfa_verification") {
+        return res.status(401).json({ error: "Invalid token purpose" });
+      }
+    } catch (error) {
+      return res.status(401).json({ error: "Invalid or expired MFA token" });
+    }
+
+    // Find user
+    const user = await User.findById(decoded.userId);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    if (!user.mfaEnabled || !user.mfaMethod) {
+      return res.status(400).json({ error: "MFA is not enabled for this account" });
+    }
+
+    // Verify the MFA code based on method
+    let isValid = false;
+    if (user.mfaMethod === "email" || user.mfaMethod === "sms") {
+      const { verifyOTP } = await import("../services/mfaService.js");
+      const result = verifyOTP(user._id.toString(), user.mfaMethod, code);
+      isValid = result.valid;
+      if (!isValid) {
+        return res.status(401).json({ error: result.error || "Invalid verification code" });
+      }
+    } else if (user.mfaMethod === "totp") {
+      const { verifyTOTP, verifyBackupCode } = await import("../services/mfaService.js");
+      try {
+        // Try TOTP first
+        await verifyTOTP(user._id.toString(), code);
+        isValid = true;
+      } catch (error) {
+        // If TOTP fails, try backup code
+        try {
+          isValid = await verifyBackupCode(user._id.toString(), code);
+          if (!isValid) {
+            return res.status(401).json({ error: "Invalid verification code" });
+          }
+        } catch (backupError) {
+          return res.status(401).json({ error: "Invalid verification code" });
+        }
+      }
+    }
+
+    if (!isValid) {
+      return res.status(401).json({ error: "Invalid verification code" });
+    }
+
+    // MFA verified, generate final login token
     const token = jwt.sign(
       { userId: user._id, email: user.email, plan: user.plan },
       process.env.JWT_SECRET || "your-secret-key",

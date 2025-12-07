@@ -107,7 +107,7 @@ router.get("/stats", optionalAuthenticate, async (req, res, next) => {
     const scans = await Scan.find({
       userId: req.user.userId,
       status: "completed",
-    }).select("summary").lean();
+    }).select("summary filesAnalyzed scanDuration").lean();
 
     const severityBreakdown = scans.reduce(
       (acc, scan) => {

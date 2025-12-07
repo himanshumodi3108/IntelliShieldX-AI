@@ -1,7 +1,7 @@
 import { ChatMessage, Conversation } from "@/hooks/use-chat";
 
-const GUEST_CHAT_STORAGE_KEY = "sentinelx_guest_chats";
-const GUEST_CHAT_COUNT_KEY = "sentinelx_guest_chat_count";
+const GUEST_CHAT_STORAGE_KEY = "intellishieldx_guest_chats";
+const GUEST_CHAT_COUNT_KEY = "intellishieldx_guest_chat_count";
 const GUEST_CHAT_LIMIT = 2;
 
 export interface GuestChatData {

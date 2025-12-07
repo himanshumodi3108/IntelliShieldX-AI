@@ -16,6 +16,10 @@ import {
   getGSTEnabled,
   canCancelSubscription,
   isSubscriptionActive,
+  getPlanLimits,
+  getPlanPricing,
+  getGSTRate,
+  getTransactionFeeRate,
 } from "../services/razorpayService.js";
 import {
   sendWelcomeEmail,
@@ -45,25 +49,47 @@ router.post("/create-order", async (req, res, next) => {
       return res.status(404).json({ error: "User not found" });
     }
 
+    // Plan hierarchy for upgrade comparison
+    const PLAN_HIERARCHY = {
+      free: 0,
+      standard: 1,
+      pro: 2,
+      enterprise: 3,
+    };
+
     // Check if user already has an active subscription
+    // Allow purchasing if subscription is cancelled/deactivated (limit reached) or expired
+    // Allow upgrades (higher tier plans) even with active subscription
     if (user.subscriptionId) {
       const existingSubscription = await Subscription.findById(user.subscriptionId);
       if (existingSubscription && isSubscriptionActive(existingSubscription)) {
-        return res.status(400).json({
-          error: "You already have an active subscription",
-          currentPlan: user.plan,
-          expiresAt: existingSubscription.endDate,
-        });
+        const currentPlanLevel = PLAN_HIERARCHY[user.plan] || 0;
+        const newPlanLevel = PLAN_HIERARCHY[plan] || 0;
+        
+        // Block if trying to purchase same or lower plan
+        if (newPlanLevel <= currentPlanLevel) {
+          return res.status(400).json({
+            error: "You already have an active subscription",
+            message: "You can only upgrade to a higher tier plan. To change to a lower tier, please cancel your current subscription first.",
+            currentPlan: user.plan,
+            expiresAt: existingSubscription.endDate,
+          });
+        }
+        // Allow upgrade - continue with order creation
+      } else if (existingSubscription && (existingSubscription.status === "cancelled" || existingSubscription.status === "expired")) {
+        // Allow purchasing new plan if subscription is cancelled or expired
+        // Continue with order creation
       }
     }
 
-    const baseAmount = PLAN_PRICING[plan];
-    if (!baseAmount) {
-      return res.status(400).json({ error: "Invalid plan pricing" });
+    // Get pricing from database
+    const baseAmount = await getPlanPricing(plan);
+    if (!baseAmount || baseAmount === 0) {
+      return res.status(400).json({ error: "Invalid plan pricing or plan not found" });
     }
 
     // Calculate GST, transaction fee, and total amount
-    const fees = calculateTotalWithFees(baseAmount);
+    const fees = await calculateTotalWithFees(baseAmount);
 
     // Create Razorpay order (receipt must be max 40 chars for Razorpay)
     // Use a shorter format: sub_<shortUserId>_<timestamp>
@@ -121,7 +147,8 @@ router.post("/verify-payment", async (req, res, next) => {
     }
 
     // Fetch actual payment details from Razorpay to get the exact amount paid
-    const fees = calculateTotalWithFees(PLAN_PRICING[plan]);
+    const planBaseAmount = await getPlanPricing(plan);
+    const fees = await calculateTotalWithFees(planBaseAmount);
     let actualAmount = fees.totalAmount; // Fallback to calculated total
     let baseAmount = fees.baseAmount;
     let gstAmount = fees.gstAmount;
@@ -136,14 +163,16 @@ router.post("/verify-payment", async (req, res, next) => {
         // If GST is enabled: total = base + (base * gstRate) + ((base + base * gstRate) * feeRate)
         // Simplifying: total = base * (1 + gstRate) * (1 + feeRate)
         // So: base = total / ((1 + gstRate) * (1 + feeRate))
-        // Get GST enabled status dynamically
+        // Get GST enabled status and rates dynamically
         const isGSTEnabled = getGSTEnabled();
-        const gstMultiplier = isGSTEnabled ? (1 + (parseFloat(process.env.GST_RATE || "18") / 100)) : 1;
-        const feeMultiplier = 1 + (parseFloat(process.env.TRANSACTION_FEE_RATE || "2") / 100);
+        const gstRate = await getGSTRate();
+        const feeRate = await getTransactionFeeRate();
+        const gstMultiplier = isGSTEnabled ? (1 + gstRate) : 1;
+        const feeMultiplier = 1 + feeRate;
         baseAmount = Math.round(actualAmount / (gstMultiplier * feeMultiplier));
-        gstAmount = isGSTEnabled ? calculateGST(baseAmount) : 0;
+        gstAmount = isGSTEnabled ? await calculateGST(baseAmount) : 0;
         const amountAfterGST = baseAmount + gstAmount;
-        transactionFee = calculateTransactionFee(amountAfterGST);
+        transactionFee = await calculateTransactionFee(amountAfterGST);
       }
     } catch (error) {
       console.warn("Failed to fetch payment details from Razorpay, using plan pricing:", error.message);
@@ -207,7 +236,7 @@ router.post("/verify-payment", async (req, res, next) => {
     }
 
     // Update user plan and subscription details
-    const limits = PLAN_LIMITS[plan];
+    const limits = await getPlanLimits(plan);
     user.plan = plan;
     user.subscriptionId = subscription._id;
     user.subscriptionStatus = "active";
@@ -267,6 +296,12 @@ router.get("/subscription", async (req, res, next) => {
     const subscription = user.subscriptionId;
     const isActive = isSubscriptionActive(subscription);
 
+    // Get repository count
+    const Repository = (await import("../models/Repository.js")).default;
+    const repositoryCount = await Repository.countDocuments({ userId: user._id, isActive: true });
+
+    const limits = await getPlanLimits(user.plan);
+
     res.json({
       plan: user.plan,
       status: isActive ? "active" : subscription.status,
@@ -289,9 +324,49 @@ router.get("/subscription", async (req, res, next) => {
         refundError: subscription.refundError,
         cancellationReason: subscription.cancellationReason,
       },
-      usage: user.usage,
-      limits: PLAN_LIMITS[user.plan],
+      usage: {
+        ...user.usage,
+        repositories: repositoryCount,
+      },
+      limits: {
+        ...limits,
+        repositories: limits.repositories || Infinity,
+      },
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * Get purchase history (all subscriptions for user)
+ */
+router.get("/purchase-history", async (req, res, next) => {
+  try {
+    const subscriptions = await Subscription.find({ userId: req.user.userId })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const history = subscriptions.map((sub) => ({
+      id: sub._id.toString(),
+      plan: sub.plan,
+      status: sub.status,
+      startDate: sub.startDate,
+      endDate: sub.endDate,
+      amount: sub.amount,
+      baseAmount: sub.baseAmount,
+      gstAmount: sub.gstAmount,
+      transactionFee: sub.transactionFee,
+      cancelledAt: sub.cancelledAt,
+      refundedAt: sub.refundedAt,
+      refundAmount: sub.refundAmount,
+      refundId: sub.refundId,
+      bankReferenceNumber: sub.bankReferenceNumber,
+      cancellationReason: sub.cancellationReason,
+      createdAt: sub.createdAt,
+    }));
+
+    res.json({ history });
   } catch (error) {
     next(error);
   }
@@ -323,7 +398,7 @@ router.post("/cancel-subscription", async (req, res, next) => {
     }
 
     // Check if cancellation is allowed
-    const planLimits = PLAN_LIMITS[subscription.plan];
+    const planLimits = await getPlanLimits(subscription.plan);
     const canCancel = canCancelSubscription(
       subscription,
       {
@@ -410,7 +485,7 @@ router.post("/cancel-subscription", async (req, res, next) => {
     }
 
     // Downgrade user to free plan
-    const freeLimits = PLAN_LIMITS.free;
+    const freeLimits = await getPlanLimits("free");
     user.plan = "free";
     user.subscriptionStatus = "cancelled";
     user.subscriptionExpiresAt = null;
@@ -459,7 +534,7 @@ router.post("/check-expiration", async (req, res, next) => {
       const user = await User.findById(subscription.userId);
       if (user) {
         // Downgrade to free plan
-        const freeLimits = PLAN_LIMITS.free;
+        const freeLimits = await getPlanLimits("free");
         user.plan = "free";
         user.subscriptionStatus = "expired";
         user.subscriptionExpiresAt = null;

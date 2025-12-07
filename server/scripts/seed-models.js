@@ -139,7 +139,7 @@ const models = [
 
 async function seedModels() {
   try {
-    const mongoURI = process.env.MONGODB_URI || "mongodb://localhost:27017/sentinelx";
+    const mongoURI = process.env.MONGODB_URI || "mongodb://localhost:27017/intellishieldx";
     await mongoose.connect(mongoURI);
     console.log("✅ Connected to MongoDB");
 

@@ -48,7 +48,7 @@ const PLAN_HIERARCHY: Record<string, number> = {
 };
 
 const Pricing = () => {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, refreshUser } = useAuth();
   const navigate = useNavigate();
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<"standard" | "pro" | "enterprise">("standard");
@@ -58,8 +58,30 @@ const Pricing = () => {
   useEffect(() => {
     if (isAuthenticated) {
       loadCurrentPlan();
+    } else {
+      setCurrentPlan("free");
     }
+  }, [isAuthenticated, user?.plan]); // Reload when user plan changes
+
+  // Refresh user data when page becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === "visible" && isAuthenticated) {
+        try {
+          await refreshUser();
+          loadCurrentPlan();
+        } catch (error) {
+          console.error("Failed to refresh user data:", error);
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [isAuthenticated]);
+
 
   const loadCurrentPlan = async () => {
     try {

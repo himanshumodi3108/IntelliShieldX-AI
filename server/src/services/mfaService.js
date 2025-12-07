@@ -2,6 +2,7 @@ import speakeasy from "speakeasy";
 import QRCode from "qrcode";
 import crypto from "crypto";
 import User from "../models/User.js";
+import AdminUser from "../models/AdminUser.js";
 
 /**
  * Generate a 6-digit OTP
@@ -63,12 +64,13 @@ export const verifyOTP = (userId, method, code) => {
 };
 
 /**
- * Setup TOTP for user
+ * Setup TOTP for user or admin
  */
-export const setupTOTP = async (userId) => {
-  const user = await User.findById(userId);
+export const setupTOTP = async (userId, isAdmin = false) => {
+  const Model = isAdmin ? AdminUser : User;
+  const user = await Model.findById(userId);
   if (!user) {
-    throw new Error("User not found");
+    throw new Error(isAdmin ? "Admin not found" : "User not found");
   }
 
   const secret = speakeasy.generateSecret({
@@ -92,8 +94,9 @@ export const setupTOTP = async (userId) => {
 /**
  * Verify TOTP code
  */
-export const verifyTOTP = async (userId, token) => {
-  const user = await User.findById(userId);
+export const verifyTOTP = async (userId, token, isAdmin = false) => {
+  const Model = isAdmin ? AdminUser : User;
+  const user = await Model.findById(userId);
   if (!user || !user.totpSecret) {
     throw new Error("TOTP not set up");
   }
@@ -126,8 +129,9 @@ export const generateBackupCodes = () => {
 /**
  * Verify backup code
  */
-export const verifyBackupCode = async (userId, code) => {
-  const user = await User.findById(userId);
+export const verifyBackupCode = async (userId, code, isAdmin = false) => {
+  const Model = isAdmin ? AdminUser : User;
+  const user = await Model.findById(userId);
   if (!user || !user.totpBackupCodes || user.totpBackupCodes.length === 0) {
     return false;
   }

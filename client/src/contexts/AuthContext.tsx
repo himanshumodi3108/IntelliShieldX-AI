@@ -63,6 +63,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const login = async (email: string, password: string) => {
     const response = await authApi.login(email, password);
+    // If MFA is required, return the response without setting user/token
+    if (response.requiresMFA) {
+      return response;
+    }
     if (response.user) {
       const token = response.token || localStorage.getItem("auth_token");
       if (token) {
@@ -89,6 +93,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         });
       }
     }
+    return response;
   };
 
   const register = async (email: string, password: string, name: string) => {

@@ -1,6 +1,7 @@
 import express from "express";
 import { authenticate, optionalAuthenticate } from "../middleware/auth.js";
 import Conversation from "../models/Conversation.js";
+import User from "../models/User.js";
 import { chatService } from "../services/chatService.js";
 import { modelService } from "../services/modelService.js";
 import {
@@ -93,6 +94,37 @@ router.post("/conversations/:id/messages", authenticate, async (req, res, next) 
     if (!conversation) {
       return res.status(404).json({ error: "Conversation not found" });
     }
+
+    // Check and increment chat message usage
+    const user = await User.findById(req.user.userId);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Get plan limits
+    const { getPlanLimits, checkAndDeactivateOnLimitReached } = await import("../services/razorpayService.js");
+    const limits = await getPlanLimits(user.plan);
+
+    // Check if limit is reached and deactivate subscription if needed
+    const wasDeactivated = await checkAndDeactivateOnLimitReached(user, limits);
+    
+    // Refresh user data if subscription was deactivated
+    if (wasDeactivated) {
+      await user.populate("subscriptionId");
+    }
+
+    // Check if user has reached their chat message limit
+    const chatLimit = limits.chatMessages !== Infinity ? limits.chatMessages : user.usage.chatMessagesLimit;
+    if (user.usage.chatMessages >= chatLimit) {
+      return res.status(403).json({ 
+        error: "Chat message limit reached. Your subscription has been deactivated. Please purchase a new plan to continue.",
+        subscriptionDeactivated: wasDeactivated || true,
+      });
+    }
+
+    // Increment chat message count
+    user.usage.chatMessages = (user.usage.chatMessages || 0) + 1;
+    await user.save();
 
     // Add user message
     conversation.messages.push({

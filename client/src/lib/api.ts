@@ -11,12 +11,14 @@ interface ApiResponse<T> {
 class ApiClient {
   private baseUrl: string;
   private token: string | null = null;
+  private adminToken: string | null = null;
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
     // Load token from localStorage
     if (typeof window !== "undefined") {
       this.token = localStorage.getItem("auth_token");
+      this.adminToken = localStorage.getItem("admin_token");
     }
   }
 
@@ -26,6 +28,27 @@ class ApiClient {
       localStorage.setItem("auth_token", token);
     } else if (typeof window !== "undefined") {
       localStorage.removeItem("auth_token");
+    }
+  }
+
+  setAdminToken(token: string | null) {
+    this.adminToken = token;
+    if (token && typeof window !== "undefined") {
+      localStorage.setItem("admin_token", token);
+    } else if (typeof window !== "undefined") {
+      localStorage.removeItem("admin_token");
+      this.adminToken = null; // Clear the token from memory too
+    }
+  }
+
+  // Method to refresh tokens from localStorage
+  refreshTokens() {
+    if (typeof window !== "undefined") {
+      // Always refresh from localStorage to get the latest token
+      const adminToken = localStorage.getItem("admin_token");
+      const userToken = localStorage.getItem("auth_token");
+      this.adminToken = adminToken;
+      this.token = userToken;
     }
   }
 
@@ -39,7 +62,14 @@ class ApiClient {
       ...options.headers,
     };
 
-    if (this.token) {
+    // Always refresh tokens from localStorage before making requests
+    // This ensures we have the latest token even if it was updated elsewhere
+    this.refreshTokens();
+
+    // Use admin token if available (for admin endpoints), otherwise use regular token
+    if (this.adminToken) {
+      headers["Authorization"] = `Bearer ${this.adminToken}`;
+    } else if (this.token) {
       headers["Authorization"] = `Bearer ${this.token}`;
     }
     // Note: Some endpoints (like /models/available, /chat/guest/*) are designed to work without tokens
@@ -49,6 +79,14 @@ class ApiClient {
         ...options,
         headers,
       });
+
+      // If we get a 401 and we have an admin token, log it for debugging
+      if (response.status === 401 && this.adminToken && endpoint.startsWith("/admin/")) {
+        console.warn("Admin API request returned 401. Token may be invalid or expired.");
+        console.warn("Endpoint:", endpoint);
+        console.warn("Token exists:", !!this.adminToken);
+        console.warn("Token length:", this.adminToken?.length || 0);
+      }
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: response.statusText }));
@@ -497,9 +535,27 @@ class ApiClient {
 
   // Auth API
   async login(email: string, password: string) {
-    const response = await this.request<{ token: string; user: any }>("/auth/login", {
+    const response = await this.request<{ 
+      token?: string; 
+      user?: any;
+      requiresMFA?: boolean;
+      mfaMethod?: string;
+      mfaToken?: string;
+      message?: string;
+    }>("/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password }),
+    });
+    if (response.token) {
+      this.setToken(response.token);
+    }
+    return response;
+  }
+
+  async verifyMFA(mfaToken: string, code: string) {
+    const response = await this.request<{ token: string; user: any }>("/auth/login/verify-mfa", {
+      method: "POST",
+      body: JSON.stringify({ mfaToken, code }),
     });
     if (response.token) {
       this.setToken(response.token);
@@ -702,6 +758,7 @@ export const paymentApi = {
     method: "POST",
     body: JSON.stringify({ reason }),
   }),
+  getPurchaseHistory: () => apiClient.request("/payments/purchase-history"),
 };
 
 // Dashboard API - accessible without authentication
@@ -734,6 +791,7 @@ export const dashboardApi = {
 
 export const authApi = {
   login: (email: string, password: string) => apiClient.login(email, password),
+  verifyMFA: (mfaToken: string, code: string) => apiClient.verifyMFA(mfaToken, code),
   register: (email: string, password: string, name: string) => apiClient.register(email, password, name),
   logout: () => apiClient.logout(),
   oauthLogin: (provider: string) => apiClient.oauthLogin(provider),
@@ -751,6 +809,10 @@ export const userApi = {
   getPlan: () => apiClient.getUserPlan(),
   getProfile: () => apiClient.getUserProfile(),
   updateProfile: (data: { name?: string; phone?: string }) => apiClient.updateProfile(data),
+  changePassword: (data: { currentPassword: string; newPassword: string }) => apiClient.request<{ message: string }>("/user/change-password", {
+    method: "POST",
+    body: JSON.stringify(data),
+  }),
   enableMFA: (method: "email" | "sms" | "totp") => apiClient.enableMFA(method),
   disableMFA: () => apiClient.disableMFA(),
   setupEmailOTP: () => apiClient.setupEmailOTP(),

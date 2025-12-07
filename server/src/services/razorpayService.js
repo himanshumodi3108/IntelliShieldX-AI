@@ -1,5 +1,7 @@
 import Razorpay from "razorpay";
 import crypto from "crypto";
+import PricingPlan from "../models/PricingPlan.js";
+import Settings from "../models/Settings.js";
 
 // Initialize Razorpay only if credentials are available
 let razorpay = null;
@@ -56,47 +58,151 @@ setTimeout(() => {
 }, 100);
 
 // Transaction fee rate (typically 2% for domestic cards, charged to customer)
-export const TRANSACTION_FEE_RATE = parseFloat(process.env.TRANSACTION_FEE_RATE || "2") / 100; // Convert percentage to decimal
+// If set to 0 or empty, no transaction fee will be charged
+const TRANSACTION_FEE_RATE_ENV = process.env.TRANSACTION_FEE_RATE || "2";
+export const TRANSACTION_FEE_RATE = parseFloat(TRANSACTION_FEE_RATE_ENV) / 100; // Convert percentage to decimal
 
-// Plan pricing (in paise - 1 INR = 100 paise) - Base prices before GST and fees
-export const PLAN_PRICING = {
+// Default plan pricing (fallback if database is not available)
+const DEFAULT_PLAN_PRICING = {
   standard: 49900, // ₹499
   pro: 99900, // ₹999
   enterprise: 499900, // ₹4,999
 };
 
+// Cache for pricing plans (refreshed periodically)
+let pricingPlanCache = null;
+let pricingPlanCacheTime = 0;
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Clear pricing plan cache (useful when plans are updated)
+ */
+export const clearPricingCache = () => {
+  pricingPlanCache = null;
+  pricingPlanCacheTime = 0;
+};
+
+/**
+ * Get pricing plan from database with caching
+ * @param {string} planId - Plan ID (standard, pro, enterprise)
+ * @returns {Promise<number>} Price in paise
+ */
+export const getPlanPricing = async (planId) => {
+  try {
+    // Check cache
+    const now = Date.now();
+    if (pricingPlanCache && (now - pricingPlanCacheTime) < CACHE_DURATION) {
+      return pricingPlanCache[planId] || DEFAULT_PLAN_PRICING[planId] || 0;
+    }
+
+    // Load from database
+    const plans = await PricingPlan.find({ isActive: true }).lean();
+    const pricing = {};
+    
+    plans.forEach((plan) => {
+      // Convert rupees to paise (multiply by 100)
+      pricing[plan.planId] = Math.round(plan.price * 100);
+    });
+
+    // Update cache
+    pricingPlanCache = { ...DEFAULT_PLAN_PRICING, ...pricing };
+    pricingPlanCacheTime = now;
+
+    return pricingPlanCache[planId] || DEFAULT_PLAN_PRICING[planId] || 0;
+  } catch (error) {
+    console.error("Error loading pricing plans from database:", error);
+    // Fallback to default
+    return DEFAULT_PLAN_PRICING[planId] || 0;
+  }
+};
+
+/**
+ * Get all plan pricing (for backward compatibility)
+ */
+export const PLAN_PRICING = new Proxy(DEFAULT_PLAN_PRICING, {
+  get: async (target, prop) => {
+    if (typeof prop === "string" && target[prop] !== undefined) {
+      return await getPlanPricing(prop);
+    }
+    return target[prop];
+  },
+});
+
+// Synchronous version for immediate access (uses cache or default)
+export const getPlanPricingSync = (planId) => {
+  if (pricingPlanCache && pricingPlanCache[planId] !== undefined) {
+    return pricingPlanCache[planId];
+  }
+  return DEFAULT_PLAN_PRICING[planId] || 0;
+};
+
+/**
+ * Get GST rate from database or environment
+ */
+export const getGSTRate = async () => {
+  try {
+    const gstSetting = await Settings.findOne({ category: "payments", key: "gstRate" }).lean();
+    if (gstSetting && gstSetting.value !== undefined) {
+      return parseFloat(gstSetting.value) / 100; // Convert percentage to decimal
+    }
+  } catch (error) {
+    // Fallback to env var
+  }
+  return GST_RATE;
+};
+
 /**
  * Calculate GST amount from base price
  * @param {number} baseAmount - Base amount in paise
- * @returns {number} GST amount in paise (0 if GST is disabled)
+ * @returns {Promise<number>} GST amount in paise (0 if GST is disabled)
  */
-export const calculateGST = (baseAmount) => {
-  // Check dynamically in case env var changed
+export const calculateGST = async (baseAmount) => {
+  // Check dynamically in case env var or database setting changed
   const isEnabled = getGSTEnabled();
   if (!isEnabled) {
     return 0;
   }
-  return Math.round(baseAmount * GST_RATE);
+  const gstRate = await getGSTRate();
+  return Math.round(baseAmount * gstRate);
+};
+
+/**
+ * Get transaction fee rate from database or environment
+ */
+export const getTransactionFeeRate = async () => {
+  try {
+    const feeSetting = await Settings.findOne({ category: "payments", key: "transactionFeeRate" }).lean();
+    if (feeSetting && feeSetting.value !== undefined) {
+      return parseFloat(feeSetting.value) / 100; // Convert percentage to decimal
+    }
+  } catch (error) {
+    // Fallback to env var
+  }
+  return TRANSACTION_FEE_RATE;
 };
 
 /**
  * Calculate transaction fee amount
  * @param {number} amount - Amount in paise (after GST if applicable)
- * @returns {number} Transaction fee amount in paise
+ * @returns {Promise<number>} Transaction fee amount in paise (0 if rate is 0)
  */
-export const calculateTransactionFee = (amount) => {
-  return Math.round(amount * TRANSACTION_FEE_RATE);
+export const calculateTransactionFee = async (amount) => {
+  const feeRate = await getTransactionFeeRate();
+  if (feeRate === 0) {
+    return 0;
+  }
+  return Math.round(amount * feeRate);
 };
 
 /**
  * Calculate total amount including GST and transaction fee
  * @param {number} baseAmount - Base amount in paise
- * @returns {object} Object containing baseAmount, gstAmount, transactionFee, and totalAmount
+ * @returns {Promise<object>} Object containing baseAmount, gstAmount, transactionFee, and totalAmount
  */
-export const calculateTotalWithFees = (baseAmount) => {
-  const gstAmount = calculateGST(baseAmount);
+export const calculateTotalWithFees = async (baseAmount) => {
+  const gstAmount = await calculateGST(baseAmount);
   const amountAfterGST = baseAmount + gstAmount;
-  const transactionFee = calculateTransactionFee(amountAfterGST);
+  const transactionFee = await calculateTransactionFee(amountAfterGST);
   const totalAmount = amountAfterGST + transactionFee;
 
   return {
@@ -110,15 +216,15 @@ export const calculateTotalWithFees = (baseAmount) => {
 /**
  * Calculate total amount including GST (for backward compatibility)
  * @param {number} baseAmount - Base amount in paise
- * @returns {number} Total amount including GST in paise
+ * @returns {Promise<number>} Total amount including GST in paise
  */
-export const calculateTotalWithGST = (baseAmount) => {
-  const fees = calculateTotalWithFees(baseAmount);
+export const calculateTotalWithGST = async (baseAmount) => {
+  const fees = await calculateTotalWithFees(baseAmount);
   return fees.totalAmount;
 };
 
-// Plan limits
-export const PLAN_LIMITS = {
+// Default plan limits (fallback if database is not available)
+const DEFAULT_PLAN_LIMITS = {
   free: {
     documentation: 1,
     repositories: 1,
@@ -144,6 +250,54 @@ export const PLAN_LIMITS = {
     chatMessages: Infinity,
   },
 };
+
+/**
+ * Get plan limits from database with caching
+ * @param {string} planId - Plan ID
+ * @returns {Promise<object>} Plan limits
+ */
+export const getPlanLimits = async (planId) => {
+  try {
+    // Check cache
+    const now = Date.now();
+    if (pricingPlanCache && (now - pricingPlanCacheTime) < CACHE_DURATION) {
+      const plan = await PricingPlan.findOne({ planId, isActive: true }).lean();
+      if (plan && plan.limits) {
+        return plan.limits;
+      }
+    }
+
+    // Load from database
+    const plan = await PricingPlan.findOne({ planId, isActive: true }).lean();
+    if (plan && plan.limits) {
+      return plan.limits;
+    }
+
+    // Fallback to default
+    return DEFAULT_PLAN_LIMITS[planId] || DEFAULT_PLAN_LIMITS.free;
+  } catch (error) {
+    console.error("Error loading plan limits from database:", error);
+    return DEFAULT_PLAN_LIMITS[planId] || DEFAULT_PLAN_LIMITS.free;
+  }
+};
+
+// Synchronous version for immediate access
+export const PLAN_LIMITS = new Proxy(DEFAULT_PLAN_LIMITS, {
+  get: async (target, prop) => {
+    if (typeof prop === "string") {
+      try {
+        const plan = await PricingPlan.findOne({ planId: prop, isActive: true }).lean();
+        if (plan && plan.limits) {
+          return plan.limits;
+        }
+      } catch (error) {
+        // Fallback to default
+      }
+      return target[prop] || target.free;
+    }
+    return target[prop];
+  },
+});
 
 /**
  * Create a Razorpay order
@@ -298,6 +452,55 @@ export const isSubscriptionActive = (subscription) => {
   if (subscription.status !== "active") return false;
   if (subscription.endDate && new Date() > new Date(subscription.endDate)) return false;
   return true;
+};
+
+/**
+ * Check if user has reached any limit and deactivate subscription if needed
+ * @param {Object} user - User object
+ * @param {Object} limits - Plan limits
+ * @returns {Promise<boolean>} - Returns true if subscription was deactivated
+ */
+export const checkAndDeactivateOnLimitReached = async (user, limits) => {
+  if (!user.subscriptionId || user.plan === "free") {
+    return false;
+  }
+
+  const Subscription = (await import("../models/Subscription.js")).default;
+  const subscription = await Subscription.findById(user.subscriptionId);
+  
+  if (!subscription || !isSubscriptionActive(subscription)) {
+    return false;
+  }
+
+  // Check if any limit is reached
+  const Repository = (await import("../models/Repository.js")).default;
+  const repositoryCount = await Repository.countDocuments({ userId: user._id, isActive: true });
+
+  const limitsReached = {
+    documentation: limits.documentation !== Infinity && (user.usage.documentation || 0) >= limits.documentation,
+    scans: limits.scans !== Infinity && (user.usage.scans || 0) >= limits.scans,
+    chatMessages: limits.chatMessages !== Infinity && (user.usage.chatMessages || 0) >= limits.chatMessages,
+    repositories: limits.repositories !== Infinity && repositoryCount >= limits.repositories,
+  };
+
+  const anyLimitReached = Object.values(limitsReached).some(reached => reached);
+
+  if (anyLimitReached) {
+    // Deactivate subscription
+    subscription.status = "cancelled";
+    subscription.cancelledAt = new Date();
+    subscription.cancellationReason = "Limit reached - automatic deactivation";
+    await subscription.save();
+
+    // Update user
+    user.subscriptionStatus = "cancelled";
+    user.subscriptionExpiresAt = null;
+    await user.save();
+
+    return true;
+  }
+
+  return false;
 };
 
 /**

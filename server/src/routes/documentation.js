@@ -31,7 +31,8 @@ const checkDocumentationLimit = async (req, res, next) => {
       subscription = await Subscription.findById(user.subscriptionId);
       if (subscription && !isSubscriptionActive(subscription)) {
         // Subscription expired, downgrade to free
-        const freeLimits = PLAN_LIMITS.free;
+        const { getPlanLimits } = await import("../services/razorpayService.js");
+        const freeLimits = await getPlanLimits("free");
         user.plan = "free";
         user.subscriptionStatus = "expired";
         user.subscriptionExpiresAt = null;
@@ -40,18 +41,31 @@ const checkDocumentationLimit = async (req, res, next) => {
       }
     }
 
-    const limits = PLAN_LIMITS[user.plan] || PLAN_LIMITS.free;
+    const { getPlanLimits, checkAndDeactivateOnLimitReached } = await import("../services/razorpayService.js");
+    const limits = await getPlanLimits(user.plan);
     const currentUsage = user.usage.documentation || 0;
     const limit = limits.documentation;
+
+    // Check if limit is reached and deactivate subscription if needed
+    const wasDeactivated = await checkAndDeactivateOnLimitReached(user, limits);
+    
+    // Refresh user data if subscription was deactivated
+    if (wasDeactivated) {
+      await user.populate("subscriptionId");
+      // Re-fetch limits in case plan changed
+      const newLimits = await getPlanLimits(user.plan);
+      Object.assign(limits, newLimits);
+    }
 
     // Check if limit is reached
     if (limit !== Infinity && currentUsage >= limit) {
       return res.status(403).json({
         error: "Documentation limit reached",
-        message: `You have reached your documentation generation limit (${limit}). ${user.plan === "free" ? "Upgrade your plan to generate more documentation." : "Your subscription may have expired or you've reached your plan limit."}`,
+        message: `You have reached your documentation generation limit (${limit}). ${user.plan === "free" ? "Upgrade your plan to generate more documentation." : wasDeactivated ? "Your subscription has been deactivated. Please purchase a new plan to continue." : "Your subscription may have expired or you've reached your plan limit."}`,
         currentUsage,
         limit,
         plan: user.plan,
+        subscriptionDeactivated: wasDeactivated,
       });
     }
 

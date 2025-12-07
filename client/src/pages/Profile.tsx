@@ -8,11 +8,12 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
-import { userApi } from "@/lib/api";
+import { userApi, paymentApi } from "@/lib/api";
 import { toast } from "sonner";
 import { ConnectedAccounts } from "@/components/profile/ConnectedAccounts";
 import { RepositoryList } from "@/components/profile/RepositoryList";
 import { SubscriptionManagement } from "@/components/payments/SubscriptionManagement";
+import { ChangePasswordForm } from "@/components/profile/ChangePasswordForm";
 import {
   User,
   Mail,
@@ -27,6 +28,7 @@ import {
   EyeOff,
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 
 const Profile = () => {
   const { user, refreshUser } = useAuth();
@@ -44,9 +46,12 @@ const Profile = () => {
   const [showTotpSecret, setShowTotpSecret] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [purchaseHistory, setPurchaseHistory] = useState<any[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   useEffect(() => {
     loadProfile();
+    loadPurchaseHistory();
   }, []);
 
   const loadProfile = async () => {
@@ -66,6 +71,18 @@ const Profile = () => {
       toast.error("Failed to load profile");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadPurchaseHistory = async () => {
+    try {
+      setIsLoadingHistory(true);
+      const data = await paymentApi.getPurchaseHistory();
+      setPurchaseHistory(data.history || []);
+    } catch (error) {
+      console.error("Failed to load purchase history:", error);
+    } finally {
+      setIsLoadingHistory(false);
     }
   };
 
@@ -267,6 +284,24 @@ const Profile = () => {
                   "Save Changes"
                 )}
               </Button>
+            </CardContent>
+          </Card>
+
+          {/* Change Password */}
+          <Card className="glass border-border/50">
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10 border border-primary/30">
+                  <Shield className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <CardTitle>Change Password</CardTitle>
+                  <CardDescription>Update your account password</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <ChangePasswordForm />
             </CardContent>
           </Card>
 
@@ -491,6 +526,84 @@ const Profile = () => {
 
             <TabsContent value="subscription" className="space-y-6">
               <SubscriptionManagement />
+              
+              {/* Purchase History */}
+              <Card className="glass border-border/50">
+                <CardHeader>
+                  <CardTitle>Purchase History</CardTitle>
+                  <CardDescription>View all your past and current subscription plans</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {isLoadingHistory ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : purchaseHistory.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">
+                      No purchase history found.
+                    </p>
+                  ) : (
+                    <div className="space-y-4">
+                      {purchaseHistory.map((item) => (
+                        <div
+                          key={item.id}
+                          className="p-4 rounded-lg border border-border bg-secondary/30 space-y-2"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <Badge variant={item.status === "active" ? "default" : "secondary"}>
+                                {item.plan}
+                              </Badge>
+                              <Badge
+                                className={
+                                  item.status === "active"
+                                    ? "bg-green-500/20 text-green-500"
+                                    : item.status === "cancelled"
+                                    ? "bg-yellow-500/20 text-yellow-500"
+                                    : item.status === "expired"
+                                    ? "bg-gray-500/20 text-gray-500"
+                                    : "bg-red-500/20 text-red-500"
+                                }
+                              >
+                                {item.status}
+                              </Badge>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-semibold">₹{item.amount?.toFixed(2) || "0.00"}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {new Date(item.createdAt).toLocaleDateString()}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                              <span className="text-muted-foreground">Start:</span>{" "}
+                              {new Date(item.startDate).toLocaleDateString()}
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">End:</span>{" "}
+                              {new Date(item.endDate).toLocaleDateString()}
+                            </div>
+                          </div>
+                          {item.bankReferenceNumber && (
+                            <div className="pt-2 border-t border-border">
+                              <div className="text-xs text-muted-foreground">Refund Reference:</div>
+                              <div className="font-mono font-semibold text-green-600">
+                                {item.bankReferenceNumber}
+                              </div>
+                            </div>
+                          )}
+                          {item.cancellationReason && (
+                            <div className="text-xs text-muted-foreground">
+                              <span className="font-medium">Cancellation Reason:</span> {item.cancellationReason}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </TabsContent>
 
             <TabsContent value="accounts" className="space-y-6">

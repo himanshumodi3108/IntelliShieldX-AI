@@ -22,6 +22,35 @@ router.post("/upload", upload.array("files"), async (req, res, next) => {
       return res.status(400).json({ error: "No files uploaded" });
     }
 
+    // Check scan limits and deactivate subscription if needed
+    const user = await User.findById(req.user.userId);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const { getPlanLimits, checkAndDeactivateOnLimitReached } = await import("../services/razorpayService.js");
+    const limits = await getPlanLimits(user.plan);
+    
+    // Check if limit is reached and deactivate subscription if needed
+    const wasDeactivated = await checkAndDeactivateOnLimitReached(user, limits);
+    
+    // Refresh user data if subscription was deactivated
+    if (wasDeactivated) {
+      await user.populate("subscriptionId");
+      const newLimits = await getPlanLimits(user.plan);
+      Object.assign(limits, newLimits);
+    }
+
+    // Check if scan limit is reached
+    const scanLimit = limits.scans !== Infinity ? limits.scans : user.usage.scansLimit;
+    if ((user.usage.scans || 0) >= scanLimit) {
+      return res.status(403).json({
+        error: "Scan limit reached",
+        message: `You have reached your scan limit (${scanLimit}). ${wasDeactivated ? "Your subscription has been deactivated. Please purchase a new plan to continue." : "Please upgrade your plan to continue."}`,
+        subscriptionDeactivated: wasDeactivated,
+      });
+    }
+
     const scanId = "scan_" + Date.now();
     const scanStartTime = Date.now();
     const files = req.files.map((f) => ({

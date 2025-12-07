@@ -194,7 +194,7 @@ export function PaymentDialog({ open, onOpenChange, plan, onSuccess }: PaymentDi
                   </span>
                 </div>
               )}
-              {orderData?.transactionFee > 0 && (
+              {orderData?.transactionFee && orderData.transactionFee > 0 && (
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Transaction Fee</span>
                   <span className="text-muted-foreground">

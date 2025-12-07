@@ -293,6 +293,189 @@ export const sendCancellationEmail = async (email, name, plan, refundAmount, ref
 };
 
 /**
+ * Generate a random password
+ */
+const generateRandomPassword = (length = 12) => {
+  const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+  let password = "";
+  // Ensure at least one lowercase, one uppercase, one number, and one special character
+  password += "abcdefghijklmnopqrstuvwxyz"[Math.floor(Math.random() * 26)];
+  password += "ABCDEFGHIJKLMNOPQRSTUVWXYZ"[Math.floor(Math.random() * 26)];
+  password += "0123456789"[Math.floor(Math.random() * 10)];
+  password += "!@#$%^&*"[Math.floor(Math.random() * 8)];
+  
+  // Fill the rest randomly
+  for (let i = password.length; i < length; i++) {
+    password += charset[Math.floor(Math.random() * charset.length)];
+  }
+  
+  // Shuffle the password
+  return password.split("").sort(() => Math.random() - 0.5).join("");
+};
+
+/**
+ * Send admin account creation email
+ */
+export const sendAdminCreationEmail = async (email, name, role, adminPanelUrl, generatedPassword, passwordExpiryHours = 24) => {
+  const roleNames = {
+    admin: "Admin",
+    super_admin: "Super Admin",
+  };
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .content { background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; }
+        .details { background: white; padding: 20px; border-radius: 5px; margin: 20px 0; }
+        .detail-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e5e7eb; }
+        .detail-row:last-child { border-bottom: none; }
+        .button { display: inline-block; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+        .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+        .warning { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 5px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Admin Account Created</h1>
+        </div>
+        <div class="content">
+          <p>Hi ${name},</p>
+          <p>An admin account has been created for you on IntelliShieldX.</p>
+          <div class="details">
+            <h3>Account Details</h3>
+            <div class="detail-row">
+              <span><strong>Email:</strong></span>
+              <span>${email}</span>
+            </div>
+            <div class="detail-row">
+              <span><strong>Role:</strong></span>
+              <span>${roleNames[role] || role}</span>
+            </div>
+          </div>
+          ${generatedPassword ? `
+          <div class="details" style="background: #fef3c7; border-left: 4px solid #f59e0b;">
+            <h3 style="color: #92400e; margin-top: 0;">Your Temporary Password</h3>
+            <p style="color: #92400e; margin-bottom: 10px;"><strong>⚠️ Important:</strong> Select the password below to reveal it. This password will expire in ${passwordExpiryHours} hours.</p>
+            <div style="background: #000000; padding: 15px; border-radius: 5px; border: 2px solid #f59e0b;">
+              <p style="font-size: 18px; font-weight: bold; color: #000000; font-family: monospace; text-align: center; letter-spacing: 2px; margin: 0; padding: 10px; user-select: all; -webkit-user-select: all; -moz-user-select: all; -ms-user-select: all; background: #000000;">
+                ${generatedPassword}
+              </p>
+              <p style="font-size: 12px; color: #92400e; text-align: center; margin-top: 8px; margin-bottom: 0;">
+                Select the text above to reveal password (valid for ${passwordExpiryHours} hours)
+              </p>
+            </div>
+            <p style="color: #92400e; margin-top: 10px; margin-bottom: 0;"><strong>⚠️ Security Note:</strong> This password will expire in ${passwordExpiryHours} hours. Please change it immediately after your first login.</p>
+          </div>
+          ` : ""}
+          <div class="warning">
+            <p><strong>Important:</strong> Please log in to the admin panel and change your password immediately after your first login.</p>
+          </div>
+          <p>You can access the admin panel using the link below:</p>
+          <div style="text-align: center;">
+            <a href="${adminPanelUrl}" class="button">Access Admin Panel</a>
+          </div>
+          <p>If you have any questions or need assistance, please contact the system administrator.</p>
+          <p>Best regards,<br>The IntelliShieldX Team</p>
+        </div>
+        <div class="footer">
+          <p>© ${new Date().getFullYear()} IntelliShieldX. All rights reserved.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return await sendEmail({
+    to: email,
+    subject: "Admin Account Created - IntelliShieldX",
+    html,
+  });
+};
+
+/**
+ * Send plan change notification email
+ */
+export const sendPlanChangeEmail = async (email, name, oldPlan, newPlan, isUpgrade) => {
+  const planNames = {
+    free: "Free",
+    standard: "Standard",
+    pro: "Pro",
+    enterprise: "Enterprise",
+  };
+
+  const changeType = isUpgrade ? "Upgraded" : "Changed";
+  const headerColor = isUpgrade 
+    ? "linear-gradient(135deg, #10b981 0%, #059669 100%)" 
+    : "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)";
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: ${headerColor}; color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .content { background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; }
+        .details { background: white; padding: 20px; border-radius: 5px; margin: 20px 0; }
+        .detail-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e5e7eb; }
+        .detail-row:last-child { border-bottom: none; }
+        .plan-badge { display: inline-block; padding: 5px 15px; border-radius: 20px; font-weight: bold; }
+        .old-plan { background: #e5e7eb; color: #6b7280; }
+        .new-plan { background: ${isUpgrade ? "#d1fae5" : "#e0e7ff"}; color: ${isUpgrade ? "#065f46" : "#3730a3"}; }
+        .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Plan ${changeType}</h1>
+        </div>
+        <div class="content">
+          <p>Hi ${name},</p>
+          <p>Your subscription plan has been ${changeType.toLowerCase()} by an administrator.</p>
+          <div class="details">
+            <h3>Plan Change Details</h3>
+            <div class="detail-row">
+              <span><strong>Previous Plan:</strong></span>
+              <span class="plan-badge old-plan">${planNames[oldPlan] || oldPlan}</span>
+            </div>
+            <div class="detail-row">
+              <span><strong>New Plan:</strong></span>
+              <span class="plan-badge new-plan">${planNames[newPlan] || newPlan}</span>
+            </div>
+          </div>
+          ${isUpgrade ? `
+          <p><strong>Congratulations!</strong> You now have access to additional features and higher limits with your new plan.</p>
+          <p>You can view your updated plan details and usage statistics in your profile settings.</p>
+          ` : `
+          <p>Your plan has been updated. Please check your profile to see the new limits and features available to you.</p>
+          `}
+          <p>If you have any questions about this change, please contact our support team.</p>
+          <p>Best regards,<br>The IntelliShieldX Team</p>
+        </div>
+        <div class="footer">
+          <p>© ${new Date().getFullYear()} IntelliShieldX. All rights reserved.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return await sendEmail({
+    to: email,
+    subject: `Plan ${changeType} - IntelliShieldX`,
+    html,
+  });
+};
+
+/**
  * Send password reset email
  */
 export const sendPasswordResetEmail = async (email, name, resetLink) => {

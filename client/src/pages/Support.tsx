@@ -327,7 +327,7 @@ const Support = () => {
                       <Mail className="h-6 w-6 text-primary" />
                     </div>
                     <h3 className="font-semibold mb-2">Email Us</h3>
-                    <p className="text-muted-foreground mb-2">support@sentinelx.com</p>
+                    <p className="text-muted-foreground mb-2">support@intellishieldx.com</p>
                     <p className="text-sm text-muted-foreground">We typically respond within 24 hours</p>
                   </div>
                   <div className="text-center">

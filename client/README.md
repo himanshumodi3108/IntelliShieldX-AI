@@ -15,6 +15,7 @@ React frontend application built with Vite, TypeScript, and modern UI components
 - 💳 Subscription Management
 - 📚 Repository Documentation
 - 🍪 Cookie Consent Management
+- 👨‍💼 Admin Dashboard
 
 ## Technologies
 
@@ -87,11 +88,15 @@ client/
 │   │   ├── scan/        # Scan components
 │   │   ├── payments/    # Payment components
 │   │   ├── documentation/ # Documentation components
+│   │   ├── admin/       # Admin components
 │   │   └── ui/          # shadcn/ui components
-│   ├── contexts/        # React contexts (Auth, etc.)
+│   ├── contexts/        # React contexts (Auth, AdminAuth, etc.)
 │   ├── hooks/           # Custom React hooks
 │   ├── lib/             # Utilities and API client
+│   │   ├── api.ts       # Main API client
+│   │   └── adminApi.ts  # Admin API client
 │   ├── pages/           # Page components
+│   │   └── admin/       # Admin pages
 │   ├── utils/           # Helper functions
 │   ├── App.tsx          # Main app component
 │   └── main.tsx         # Entry point
@@ -176,6 +181,21 @@ client/
 - Customize preferences
 - Persistent storage
 
+### Admin Dashboard
+- Comprehensive admin panel for platform management
+- User management (view, edit, suspend, activate, change plans)
+- Subscription management with refund processing
+- Revenue analytics and tracking
+- Usage analytics (scans, documentation, chat, models)
+- AI model management (CRUD operations)
+- Content management (scans, documentation, conversations)
+- System monitoring (health checks, metrics, uptime)
+- Settings management (OAuth, payments, email configuration)
+- Reports system (revenue, user growth, usage reports)
+- Admin activity logs with audit trail
+- Role-based access control (admin vs super_admin)
+- Responsive design matching main website UI
+
 ## Pages
 
 - `/` - Home page
@@ -192,6 +212,17 @@ client/
 - `/support` - Contact support
 - `/profile` - User profile with MFA settings (protected)
 - `/documentation/:repositoryId` - Repository documentation (protected)
+- `/admin/login` - Admin login page
+- `/admin/dashboard` - Admin dashboard overview (protected)
+- `/admin/users` - User management (protected)
+- `/admin/subscriptions` - Subscription management (protected)
+- `/admin/analytics` - Analytics and insights (protected)
+- `/admin/models` - AI model management (protected)
+- `/admin/content` - Content management (protected)
+- `/admin/system` - System monitoring (protected)
+- `/admin/settings` - System settings (protected)
+- `/admin/reports` - Reports and exports (protected)
+- `/admin/logs` - Admin activity logs (protected)
 
 ## Development
 
@@ -212,6 +243,27 @@ client/
 - Follow existing design patterns
 - Use glass morphism effects for cards
 - Use gradient text for headings
+
+## Admin Dashboard
+
+The frontend includes a comprehensive admin dashboard for managing the platform. See `ADMIN_SETUP.md` for detailed setup instructions.
+
+### Admin Features
+- User management with search and filters
+- Subscription management and refund processing
+- Revenue and usage analytics with charts
+- AI model configuration
+- Content moderation (scans, documentation, conversations)
+- System health monitoring
+- Settings configuration
+- Reports generation
+- Admin activity audit logs
+
+### Admin Authentication
+- Separate admin authentication context
+- JWT-based admin tokens
+- Role-based access control
+- Protected admin routes
 
 ## Building for Production
 

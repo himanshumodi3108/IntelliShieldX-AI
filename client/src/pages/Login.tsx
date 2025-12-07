@@ -15,7 +15,13 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { login, isAuthenticated, isLoading: authLoading } = useAuth();
+  const [requiresMFA, setRequiresMFA] = useState(false);
+  const [mfaMethod, setMfaMethod] = useState<"email" | "sms" | "totp" | null>(null);
+  const [mfaToken, setMfaToken] = useState("");
+  const [mfaCode, setMfaCode] = useState("");
+  const [mfaMessage, setMfaMessage] = useState("");
+  const [isVerifyingMFA, setIsVerifyingMFA] = useState(false);
+  const { login, isAuthenticated, isLoading: authLoading, refreshUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -50,7 +56,18 @@ const Login = () => {
 
     setIsLoading(true);
     try {
-      await login(email, password);
+      const response = await login(email, password);
+      
+      // Check if MFA is required
+      if (response.requiresMFA) {
+        setRequiresMFA(true);
+        setMfaMethod(response.mfaMethod || null);
+        setMfaToken(response.mfaToken || "");
+        setMfaMessage(response.message || "Please enter your verification code");
+        toast.info(response.message || "Please enter your verification code");
+        setIsLoading(false);
+        return;
+      }
       
       // Save credentials if "Remember Me" is checked
       if (rememberMe) {
@@ -72,6 +89,45 @@ const Login = () => {
       toast.error(error.message || "Failed to login. Please check your credentials.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleVerifyMFA = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!mfaCode) {
+      toast.error("Please enter your verification code");
+      return;
+    }
+
+    setIsVerifyingMFA(true);
+    try {
+      const { authApi } = await import("@/lib/api");
+      const response = await authApi.verifyMFA(mfaToken, mfaCode);
+      
+      // Update user context
+      await refreshUser();
+      
+      // Save credentials if "Remember Me" is checked
+      if (rememberMe) {
+        localStorage.setItem("rememberMe", "true");
+        localStorage.setItem("rememberedEmail", email);
+        localStorage.setItem("rememberedPassword", password);
+      } else {
+        // Clear saved credentials if "Remember Me" is unchecked
+        localStorage.removeItem("rememberMe");
+        localStorage.removeItem("rememberedEmail");
+        localStorage.removeItem("rememberedPassword");
+      }
+      
+      toast.success("Welcome back!");
+      // Redirect to the page they were trying to access, or dashboard by default
+      const from = (location.state as any)?.from || "/dashboard";
+      navigate(from, { replace: true });
+    } catch (error: any) {
+      toast.error(error.message || "Invalid verification code");
+    } finally {
+      setIsVerifyingMFA(false);
     }
   };
 
@@ -119,8 +175,9 @@ const Login = () => {
             </CardHeader>
             <CardContent>
               {/* OAuth Buttons */}
-              <OAuthButtons mode="login" />
+              {!requiresMFA && <OAuthButtons mode="login" />}
               
+              {!requiresMFA ? (
               <form onSubmit={handleSubmit} className="space-y-4 mt-6">
                 <div className="space-y-2">
                   <label htmlFor="email" className="text-sm font-medium flex items-center gap-2">
@@ -210,6 +267,67 @@ const Login = () => {
                   )}
                 </Button>
               </form>
+              ) : (
+              <form onSubmit={handleVerifyMFA} className="space-y-4 mt-6">
+                <div className="space-y-2">
+                  <label htmlFor="mfaCode" className="text-sm font-medium flex items-center gap-2">
+                    <Shield className="h-4 w-4 text-muted-foreground" />
+                    {mfaMethod === "email" && "Email Verification Code"}
+                    {mfaMethod === "sms" && "SMS Verification Code"}
+                    {mfaMethod === "totp" && "Authenticator Code"}
+                  </label>
+                  <Input
+                    id="mfaCode"
+                    type="text"
+                    placeholder={mfaMethod === "totp" ? "000000" : "Enter 6-digit code"}
+                    value={mfaCode}
+                    onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    disabled={isVerifyingMFA}
+                    className="h-12 bg-background/50 border-border focus:border-primary/50 text-center text-2xl tracking-widest font-mono"
+                    maxLength={6}
+                    required
+                  />
+                  {mfaMessage && (
+                    <p className="text-sm text-muted-foreground text-center">{mfaMessage}</p>
+                  )}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="w-full text-xs"
+                    onClick={() => {
+                      setRequiresMFA(false);
+                      setMfaCode("");
+                      setMfaToken("");
+                      setMfaMessage("");
+                    }}
+                    disabled={isVerifyingMFA}
+                  >
+                    Back to login
+                  </Button>
+                </div>
+
+                <Button
+                  type="submit"
+                  variant="cyber"
+                  size="lg"
+                  className="w-full h-12 group"
+                  disabled={isVerifyingMFA || mfaCode.length !== 6}
+                >
+                  {isVerifyingMFA ? (
+                    <>
+                      <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                      Verifying...
+                    </>
+                  ) : (
+                    <>
+                      Verify
+                      <ArrowRight className="h-5 w-5 ml-2 transition-transform group-hover:translate-x-1" />
+                    </>
+                  )}
+                </Button>
+              </form>
+              )}
 
               <div className="mt-6 text-center">
                 <p className="text-sm text-muted-foreground">

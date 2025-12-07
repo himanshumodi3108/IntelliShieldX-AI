@@ -20,6 +20,7 @@ import { scanApi } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { generateScanReportPDF } from "@/utils/pdfGenerator";
 import {
   Select,
   SelectContent,
@@ -152,8 +153,21 @@ const History = () => {
   const handleDownloadReport = async (scanId: string) => {
     try {
       const scanData = await scanApi.getScanResults(scanId);
-      // TODO: Implement PDF report generation for scan results
-      toast.info("Report download feature coming soon");
+      
+      // Generate PDF report
+      generateScanReportPDF({
+        scanId: scanData.scanId || scanId,
+        target: scanData.target || "Unknown",
+        type: scanData.type || "file",
+        vulnerabilities: scanData.vulnerabilities || [],
+        summary: scanData.summary || { critical: 0, high: 0, medium: 0, low: 0 },
+        aiInsights: scanData.aiInsights,
+        scanDuration: scanData.scanDuration,
+        filesAnalyzed: scanData.filesAnalyzed,
+        createdAt: scanData.createdAt || new Date(),
+      });
+      
+      toast.success("Scan report downloaded successfully!");
     } catch (error: any) {
       console.error("Failed to download report:", error);
       toast.error(error.message || "Failed to download report");

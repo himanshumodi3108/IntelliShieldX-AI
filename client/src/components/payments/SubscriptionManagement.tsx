@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { PaymentDialog } from "./PaymentDialog";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Subscription {
   plan: string;
@@ -50,11 +51,13 @@ interface Subscription {
     documentation: number;
     scans: number;
     chatMessages: number;
+    repositories?: number;
   };
   limits: {
     documentation: number;
     scans: number;
     chatMessages: number;
+    repositories?: number;
   };
 }
 
@@ -67,9 +70,18 @@ export function SubscriptionManagement() {
   const [cancellationReason, setCancellationReason] = useState("");
   const [isCancelling, setIsCancelling] = useState(false);
 
+  const { user } = useAuth();
+
   useEffect(() => {
     loadSubscription();
   }, []);
+
+  // Reload subscription when user plan changes (e.g., after admin modifies it)
+  useEffect(() => {
+    if (user?.plan) {
+      loadSubscription();
+    }
+  }, [user?.plan]);
 
   const loadSubscription = async () => {
     try {
@@ -381,6 +393,31 @@ export function SubscriptionManagement() {
                   />
                 </div>
               </div>
+              {subscription.limits.repositories !== undefined && (
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm text-muted-foreground">Connected Repositories</span>
+                    <span className="text-sm font-medium">
+                      {subscription.usage.repositories || 0} / {subscription.limits.repositories === Infinity ? "∞" : subscription.limits.repositories}
+                    </span>
+                  </div>
+                  <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                    <div
+                      className={cn(
+                        "h-full transition-all",
+                        (subscription.usage.repositories || 0) / (subscription.limits.repositories || 1) > 0.8
+                          ? "bg-red-500"
+                          : (subscription.usage.repositories || 0) / (subscription.limits.repositories || 1) > 0.5
+                          ? "bg-yellow-500"
+                          : "bg-green-500"
+                      )}
+                      style={{
+                        width: `${Math.min(((subscription.usage.repositories || 0) / (subscription.limits.repositories || 1)) * 100, 100)}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

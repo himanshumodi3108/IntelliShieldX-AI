@@ -120,6 +120,20 @@ IntelliShieldX is a full-stack application that analyzes files, websites, and co
 - Customize preferences
 - Persistent storage of preferences
 
+### 👨‍💼 Admin Dashboard
+- Comprehensive admin panel for platform management
+- User management (view, edit, suspend, activate, change plans)
+- Subscription management with refund processing
+- Revenue analytics and tracking
+- Usage analytics (scans, documentation, chat, models)
+- AI model management (CRUD operations)
+- Content management (scans, documentation, conversations)
+- System monitoring (health checks, metrics, uptime)
+- Settings management (OAuth, payments, email configuration)
+- Reports system (revenue, user growth, usage reports)
+- Admin activity logs with audit trail
+- Role-based access control (admin vs super_admin)
+
 ## 🏗 Project Structure
 
 ```
@@ -248,6 +262,26 @@ AI Engine will run on `http://localhost:5000`
 cd server
 node scripts/seed-models.js
 ```
+
+4. Create admin user (required for admin dashboard):
+
+```bash
+cd server
+node scripts/seed-admin.js [email] [password] [name] [role]
+```
+
+Example:
+```bash
+node scripts/seed-admin.js admin@intellishieldx.ai admin123 "Admin User" super_admin
+```
+
+Default values:
+- Email: `admin@intellishieldx.ai`
+- Password: `admin123`
+- Name: `Admin User`
+- Role: `super_admin` (options: `admin`, `super_admin`)
+
+**⚠️ Important:** Change the default password after first login!
 
 ## 🔧 Configuration
 
@@ -380,6 +414,38 @@ VITE_API_BASE_URL=http://localhost:3001/api
 ### Dashboard
 - `GET /api/dashboard/stats` - Get dashboard statistics
 
+### Admin (Protected - Admin Only)
+- `POST /api/admin/auth/login` - Admin login
+- `GET /api/admin/auth/profile` - Get admin profile
+- `POST /api/admin/auth/change-password` - Change admin password
+- `GET /api/admin/users` - List users (with pagination, search, filters)
+- `GET /api/admin/users/:id` - Get user details
+- `PUT /api/admin/users/:id` - Update user
+- `POST /api/admin/users/:id/suspend` - Suspend user
+- `POST /api/admin/users/:id/activate` - Activate user
+- `POST /api/admin/users/:id/change-plan` - Change user plan
+- `DELETE /api/admin/users/:id` - Delete user
+- `GET /api/admin/subscriptions` - List subscriptions
+- `POST /api/admin/subscriptions/:id/refund` - Process refund
+- `GET /api/admin/subscriptions/analytics/revenue` - Revenue analytics
+- `GET /api/admin/analytics/overview` - Overview analytics
+- `GET /api/admin/analytics/users` - User analytics
+- `GET /api/admin/analytics/usage` - Usage analytics
+- `GET /api/admin/models` - List AI models
+- `POST /api/admin/models` - Create model
+- `PUT /api/admin/models/:id` - Update model
+- `DELETE /api/admin/models/:id` - Delete model
+- `GET /api/admin/content/scans` - List scans
+- `GET /api/admin/content/documentation` - List documentation
+- `GET /api/admin/content/conversations` - List conversations
+- `GET /api/admin/system/health` - System health check
+- `GET /api/admin/system/metrics` - System metrics
+- `GET /api/admin/settings` - Get settings
+- `GET /api/admin/reports/revenue` - Revenue report
+- `GET /api/admin/reports/users` - User report
+- `GET /api/admin/reports/usage` - Usage report
+- `GET /api/admin/logs` - Admin activity logs
+
 ## 🎨 Frontend Features
 
 ### Chat Interface
@@ -438,6 +504,15 @@ VITE_API_BASE_URL=http://localhost:3001/api
    ```
 3. Start Backend: `cd server && npm run dev`
 4. Start Frontend: `cd client && npm run dev`
+
+### Admin Dashboard Access
+
+1. Create an admin user (see Database Setup above)
+2. Navigate to `http://localhost:5173/admin/login`
+3. Login with your admin credentials
+4. Access the admin dashboard at `http://localhost:5173/admin/dashboard`
+
+For detailed admin dashboard setup and features, see `ADMIN_SETUP.md`.
 
 ### Building for Production
 

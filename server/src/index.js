@@ -17,6 +17,7 @@ import repositoryRoutes from "./routes/repositories.js";
 import dashboardRoutes from "./routes/dashboard.js";
 import documentationRoutes from "./routes/documentation.js";
 import paymentRoutes from "./routes/payments.js";
+import adminRoutes from "./routes/admin/index.js";
 import { initializeRazorpay } from "./services/razorpayService.js";
 import { reinitializeEmailService } from "./services/emailService.js";
 
@@ -46,6 +47,7 @@ app.use("/api/repositories", repositoryRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/documentation", documentationRoutes);
 app.use("/api/payments", paymentRoutes);
+app.use("/api/admin", adminRoutes);
 
 // Error handling
 app.use(errorHandler);
@@ -53,13 +55,8 @@ app.use(errorHandler);
 // Connect to database and start server
 connectDB()
   .then(() => {
-    // Verify JWT_SECRET is loaded
-    if (!process.env.JWT_SECRET || process.env.JWT_SECRET === "your-secret-key") {
-      console.warn("⚠️  WARNING: JWT_SECRET is not set or using default value. This may cause authentication issues!");
-      console.warn("   Please set JWT_SECRET in your .env file.");
-    } else {
-      console.log("✅ JWT_SECRET is configured");
-    }
+    // JWT_SECRET verification is now handled in config/jwt.js
+    // The config file loads dotenv itself, so it will log the status when imported
 
     // Initialize Razorpay after everything is loaded
     const keyId = process.env.RAZORPAY_KEY_ID;

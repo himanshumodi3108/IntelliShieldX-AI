@@ -72,6 +72,44 @@ const getSettings = async () => {
           : true,
         guestChatLimit: settingsMap.features?.guestChatLimit || 2,
       },
+      threatIntelligence: {
+        virusTotal: {
+          enabled: settingsMap.threatIntelligence?.virusTotalEnabled !== undefined
+            ? settingsMap.threatIntelligence.virusTotalEnabled
+            : !!(process.env.VIRUSTOTAL_API_KEY && process.env.VIRUSTOTAL_API_KEY.trim() !== ""),
+          configured: !!(process.env.VIRUSTOTAL_API_KEY && process.env.VIRUSTOTAL_API_KEY.trim() !== ""),
+        },
+        malwareBazaar: {
+          enabled: settingsMap.threatIntelligence?.malwareBazaarEnabled !== undefined
+            ? settingsMap.threatIntelligence.malwareBazaarEnabled
+            : true, // Always available, works without key
+          configured: !!(process.env.MALWAREBAZAAR_API_KEY && process.env.MALWAREBAZAAR_API_KEY.trim() !== ""),
+        },
+        urlhaus: {
+          enabled: settingsMap.threatIntelligence?.urlhausEnabled !== undefined
+            ? settingsMap.threatIntelligence.urlhausEnabled
+            : true, // Always available, no key required
+          configured: true,
+        },
+        hybridAnalysis: {
+          enabled: settingsMap.threatIntelligence?.hybridAnalysisEnabled !== undefined
+            ? settingsMap.threatIntelligence.hybridAnalysisEnabled
+            : !!(process.env.HYBRID_ANALYSIS_API_KEY && process.env.HYBRID_ANALYSIS_API_KEY.trim() !== ""),
+          configured: !!(process.env.HYBRID_ANALYSIS_API_KEY && process.env.HYBRID_ANALYSIS_API_KEY.trim() !== ""),
+        },
+        abuseIPDB: {
+          enabled: settingsMap.threatIntelligence?.abuseIPDBEnabled !== undefined
+            ? settingsMap.threatIntelligence.abuseIPDBEnabled
+            : !!(process.env.ABUSEIPDB_API_KEY && process.env.ABUSEIPDB_API_KEY.trim() !== ""),
+          configured: !!(process.env.ABUSEIPDB_API_KEY && process.env.ABUSEIPDB_API_KEY.trim() !== ""),
+        },
+        threatFox: {
+          enabled: settingsMap.threatIntelligence?.threatFoxEnabled !== undefined
+            ? settingsMap.threatIntelligence.threatFoxEnabled
+            : true, // Always available, no key required
+          configured: true,
+        },
+      },
     };
   } catch (error) {
     console.error("Error loading settings:", error);
@@ -96,6 +134,32 @@ const getSettings = async () => {
         maintenanceMode: false,
         registrationEnabled: true,
         guestChatLimit: 2,
+      },
+      threatIntelligence: {
+        virusTotal: {
+          enabled: !!(process.env.VIRUSTOTAL_API_KEY && process.env.VIRUSTOTAL_API_KEY.trim() !== ""),
+          configured: !!(process.env.VIRUSTOTAL_API_KEY && process.env.VIRUSTOTAL_API_KEY.trim() !== ""),
+        },
+        malwareBazaar: {
+          enabled: true,
+          configured: !!(process.env.MALWAREBAZAAR_API_KEY && process.env.MALWAREBAZAAR_API_KEY.trim() !== ""),
+        },
+        urlhaus: {
+          enabled: true,
+          configured: true,
+        },
+        hybridAnalysis: {
+          enabled: !!(process.env.HYBRID_ANALYSIS_API_KEY && process.env.HYBRID_ANALYSIS_API_KEY.trim() !== ""),
+          configured: !!(process.env.HYBRID_ANALYSIS_API_KEY && process.env.HYBRID_ANALYSIS_API_KEY.trim() !== ""),
+        },
+        abuseIPDB: {
+          enabled: !!(process.env.ABUSEIPDB_API_KEY && process.env.ABUSEIPDB_API_KEY.trim() !== ""),
+          configured: !!(process.env.ABUSEIPDB_API_KEY && process.env.ABUSEIPDB_API_KEY.trim() !== ""),
+        },
+        threatFox: {
+          enabled: true,
+          configured: true,
+        },
       },
     };
   }

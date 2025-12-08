@@ -68,16 +68,31 @@ IntelliShieldX is a full-stack application that analyzes files, websites, and co
   - Secure coding practices
   - Infrastructure/DevOps security
 
+### 🛡️ Threat Intelligence Integration
+- **Multi-source malware detection** with unified security assessment
+- **VirusTotal** - File/URL/hash scanning with 70+ antivirus engines
+- **MalwareBazaar** - Hash lookups and threat intelligence database
+- **URLhaus** - URL reputation checking (free, unlimited)
+- **Hybrid Analysis** - Advanced file analysis and sandbox reports
+- **AbuseIPDB** - IP reputation and abuse tracking
+- **ThreatFox** - IOC (Indicators of Compromise) checking (free, unlimited)
+- **Unified Security Reports** - Combined AI analysis + threat intelligence
+- **File Hash Generation** - MD5, SHA1, SHA256 for all scanned files
+- **Overall Security Score** - 0-100 score with status and recommendations
+- **Plan-based Access** - Threat intelligence limits per subscription tier
+- **Admin Controls** - Enable/disable services from admin dashboard
+
 ### 🌐 Website & URL Scanner
 - SSL check
 - Header analysis
 - CORS validation
 - Open ports detection
 - CMS version detection
+- **Threat intelligence URL scanning** (VirusTotal, URLhaus, AbuseIPDB, ThreatFox)
 
 ### 📚 Repository Management & Documentation
 - Connect GitHub repositories
-- Repository scanning with AI remediation
+- Repository scanning with AI remediation and threat intelligence
 - AI-powered documentation generation:
   - API endpoints documentation
   - Model schemas
@@ -110,6 +125,9 @@ IntelliShieldX is a full-stack application that analyzes files, websites, and co
 - Code snippets with line numbers
 - Original vs. AI-remediated code comparison
 - Remediation recommendations
+- **Threat intelligence results** (VirusTotal, MalwareBazaar, URLhaus, etc.)
+- **Overall security assessment** with score and status
+- **File hashes** (MD5, SHA1, SHA256)
 - Digital signature & QR code
 - Formatted markdown content (bold, italic, underline, lists)
 
@@ -125,11 +143,13 @@ IntelliShieldX is a full-stack application that analyzes files, websites, and co
 - User management (view, edit, suspend, activate, change plans)
 - Subscription management with refund processing
 - Revenue analytics and tracking
-- Usage analytics (scans, documentation, chat, models)
+- Usage analytics (scans, documentation, chat, models, threat intelligence)
 - AI model management (CRUD operations)
 - Content management (scans, documentation, conversations)
 - System monitoring (health checks, metrics, uptime)
 - Settings management (OAuth, payments, email configuration)
+- **Threat intelligence settings** (enable/disable services per plan)
+- **Pricing plan management** with threat intelligence limits
 - Reports system (revenue, user growth, usage reports)
 - Admin activity logs with audit trail
 - Role-based access control (admin vs super_admin)
@@ -183,6 +203,12 @@ IntelliShieldX is a full-stack application that analyzes files, websites, and co
 - API keys for AI providers (OpenAI, Anthropic, Groq, Google)
 - Razorpay account (for payments)
 - SMTP server credentials (for email notifications)
+- Threat intelligence API keys (optional):
+  - VirusTotal API key (recommended)
+  - Hybrid Analysis API key (optional)
+  - AbuseIPDB API key (optional)
+  - MalwareBazaar API key (optional, get from https://bazaar.abuse.ch/api/)
+  - ThreatFox API key (optional, get from https://threatfox.abuse.ch/api/)
 
 ### Frontend Setup
 
@@ -331,6 +357,18 @@ RAZORPAY_KEY_SECRET=your-razorpay-key-secret
 GST_ENABLED=yes
 GST_RATE=18
 TRANSACTION_FEE_RATE=2
+
+# Threat Intelligence Services (Optional)
+VIRUSTOTAL_API_KEY=your-virustotal-api-key
+VIRUSTOTAL_RATE_LIMIT_PER_MINUTE=4
+MALWAREBAZAAR_API_KEY=your-malwarebazaar-api-key
+# Get MalwareBazaar Auth-Key from: https://bazaar.abuse.ch/api/
+HYBRID_ANALYSIS_API_KEY=your-hybrid-analysis-api-key
+ABUSEIPDB_API_KEY=your-abuseipdb-api-key
+THREATFOX_API_KEY=your-threatfox-api-key
+# Note: URLhaus works without API key (free, unlimited)
+# Get MalwareBazaar Auth-Key from: https://bazaar.abuse.ch/api/
+# Get ThreatFox Auth-Key from: https://threatfox.abuse.ch/api/
 ```
 
 #### AI Engine (`model/.env`)
@@ -372,10 +410,10 @@ VITE_API_BASE_URL=http://localhost:3001/api
 - `GET /api/models/available` - Get available models for user's plan
 
 ### Scans
-- `POST /api/scan/upload` - Upload files for scanning
-- `POST /api/scan/url` - Scan URL
-- `POST /api/scan/repository` - Scan GitHub repository
-- `GET /api/scan/:id` - Get scan results
+- `POST /api/scan/upload` - Upload files for scanning (includes threat intelligence)
+- `POST /api/scan/url` - Scan URL (includes threat intelligence)
+- `POST /api/repositories/:id/scan` - Scan GitHub repository (includes threat intelligence)
+- `GET /api/scan/:id` - Get scan results (includes threat intelligence data)
 - `GET /api/scan` - Get scan history (paginated)
 - `DELETE /api/scan/:id` - Delete scan
 - `POST /api/scan/:id/chat` - Add chat message to scan
@@ -441,6 +479,12 @@ VITE_API_BASE_URL=http://localhost:3001/api
 - `GET /api/admin/system/health` - System health check
 - `GET /api/admin/system/metrics` - System metrics
 - `GET /api/admin/settings` - Get settings
+- `PUT /api/admin/settings` - Update settings (super-admin only)
+- `PUT /api/admin/settings/:category` - Update specific category (super-admin only)
+- `GET /api/admin/pricing` - Get pricing plans
+- `POST /api/admin/pricing` - Create pricing plan (super-admin only)
+- `PUT /api/admin/pricing/:id` - Update pricing plan (super-admin only)
+- `DELETE /api/admin/pricing/:id` - Delete pricing plan (super-admin only)
 - `GET /api/admin/reports/revenue` - Revenue report
 - `GET /api/admin/reports/users` - User report
 - `GET /api/admin/reports/usage` - Usage report
@@ -482,14 +526,27 @@ VITE_API_BASE_URL=http://localhost:3001/api
 
 ### Subscription Tiers
 
-| Plan | Price | Model Access | Scans | Repositories | Documentation | Chat Messages |
-|------|-------|-------------|-------|--------------|---------------|---------------|
-| **Free** | ₹0 | Groq models | 5/month | 1 (3 deletions) | 1 | 10/day (guest) |
-| **Standard** | ₹499 | Groq + OpenAI | Unlimited | 10 | 10 | Unlimited |
-| **Pro** | ₹999 | Standard + Advanced | Unlimited | 25 | 25 | Unlimited |
-| **Enterprise** | ₹4,999 | All models | Unlimited | Unlimited | Unlimited | Unlimited |
+| Plan | Price | Model Access | Scans | Repositories | Documentation | Chat Messages | Threat Intelligence |
+|------|-------|-------------|-------|--------------|---------------|---------------|-------------------|
+| **Free** | ₹0 | Groq models | 5/month | 1 (3 deletions) | 1 | 10/day (guest) | URLhaus, ThreatFox (unlimited) |
+| **Standard** | ₹499 | Groq + OpenAI | Unlimited | 10 | 10 | Unlimited | + MalwareBazaar, VirusTotal (10/day) |
+| **Pro** | ₹999 | Standard + Advanced | Unlimited | 25 | 25 | Unlimited | + Hybrid Analysis (20/day), AbuseIPDB (100/day), VirusTotal (50/day) |
+| **Enterprise** | ₹4,999 | All models | Unlimited | Unlimited | Unlimited | Unlimited | All services (VirusTotal unlimited, Hybrid Analysis 100/day, AbuseIPDB 1,000/day) |
 
 **Note:** All paid plans are valid for 1 year or until limits are exhausted, whichever is earlier. 14-day cancellation period available for Standard and Pro plans (if usage < 15% of limits).
+
+### Threat Intelligence Features by Plan
+
+| Service | Free | Standard | Pro | Enterprise |
+|---------|------|----------|-----|------------|
+| **URLhaus** | ✅ Unlimited | ✅ Unlimited | ✅ Unlimited | ✅ Unlimited |
+| **ThreatFox** | ✅ Unlimited | ✅ Unlimited | ✅ Unlimited | ✅ Unlimited |
+| **MalwareBazaar** | ❌ | ✅ Unlimited | ✅ Unlimited | ✅ Unlimited |
+| **VirusTotal** | ❌ | ✅ 10/day | ✅ 50/day | ✅ Unlimited* |
+| **Hybrid Analysis** | ❌ | ❌ | ✅ 20/day | ✅ 100/day |
+| **AbuseIPDB** | ❌ | ❌ | ✅ 100/day | ✅ 1,000/day |
+
+*Subject to VirusTotal API tier limits
 
 ## 🛠 Development
 
@@ -530,6 +587,52 @@ cd model
 # Activate venv (Windows: venv\Scripts\activate, macOS/Linux: source venv/bin/activate)
 python app.py
 ```
+
+## 🚀 Deployment
+
+### Quick Deploy
+
+**Recommended Setup:**
+- **Backend & AI Model**: [Render](https://render.com) (Web Service)
+- **Frontend**: [Vercel](https://vercel.com)
+- **Database**: [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) (Free tier available)
+
+### Deployment Steps
+
+1. **Backend Deployment (Render)**
+   - Create Web Service in Render
+   - Set root directory to `server`
+   - Add environment variables (see `DEPLOYMENT.md`)
+   - Deploy AI model as separate service (root directory: `model`)
+
+2. **Frontend Deployment (Vercel)**
+   - Import GitHub repository
+   - Set root directory to `client`
+   - Add environment variables (API base URL, OAuth redirects)
+   - Deploy automatically on push
+
+3. **Database Setup**
+   - Create MongoDB Atlas cluster (free tier)
+   - Whitelist Render IPs
+   - Add connection string to Render environment variables
+
+### Alternative Platforms
+
+**Backend Alternatives:**
+- Railway, Fly.io, DigitalOcean App Platform, AWS Elastic Beanstalk, Google Cloud Run, Azure App Service
+
+**Frontend Alternatives:**
+- Netlify, Cloudflare Pages, AWS Amplify, GitHub Pages
+
+### Detailed Deployment Guide
+
+See **[DEPLOYMENT.md](./DEPLOYMENT.md)** for:
+- Complete step-by-step deployment instructions
+- Environment variable configuration
+- Security checklist
+- Troubleshooting guide
+- Scaling recommendations
+- Docker deployment options
 
 ## 📝 License
 

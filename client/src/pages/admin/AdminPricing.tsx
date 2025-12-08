@@ -30,7 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Plus, Edit, Trash2, CreditCard, Save } from "lucide-react";
+import { Loader2, Plus, Edit, Trash2, CreditCard, Save, ShieldAlert } from "lucide-react";
 import adminApi from "@/lib/adminApi";
 import { toast } from "sonner";
 import { useAdminAuth } from "@/contexts/AdminAuthContext";
@@ -54,6 +54,14 @@ export default function AdminPricing() {
       repositories: 1,
       scans: 5,
       chatMessages: 100,
+      threatIntelligence: {
+        virusTotal: { enabled: false, limit: 0 },
+        hybridAnalysis: { enabled: false, limit: 0 },
+        abuseIPDB: { enabled: false, limit: 0 },
+        malwareBazaar: { enabled: false },
+        urlhaus: { enabled: false },
+        threatFox: { enabled: false },
+      },
     },
     features: [] as string[],
     isActive: true,
@@ -91,6 +99,14 @@ export default function AdminPricing() {
         repositories: 1,
         scans: 5,
         chatMessages: 100,
+        threatIntelligence: {
+          virusTotal: { enabled: false, limit: 0 },
+          hybridAnalysis: { enabled: false, limit: 0 },
+          abuseIPDB: { enabled: false, limit: 0 },
+          malwareBazaar: { enabled: false },
+          urlhaus: { enabled: false },
+          threatFox: { enabled: false },
+        },
       },
       features: [],
       isActive: true,
@@ -111,11 +127,52 @@ export default function AdminPricing() {
         price: planData.plan.price || 0,
         currency: planData.plan.currency || "INR",
         period: planData.plan.period || "year",
-        limits: planData.plan.limits || {
-          documentation: 1,
-          repositories: 1,
-          scans: 5,
-          chatMessages: 100,
+        limits: {
+          documentation: planData.plan.limits?.documentation || 1,
+          repositories: planData.plan.limits?.repositories || 1,
+          scans: planData.plan.limits?.scans || 5,
+          chatMessages: planData.plan.limits?.chatMessages || 100,
+          threatIntelligence: {
+            virusTotal: {
+              enabled: typeof planData.plan.limits?.threatIntelligence?.virusTotal === 'object' 
+                ? (planData.plan.limits.threatIntelligence.virusTotal.enabled ?? false)
+                : ((planData.plan.limits?.threatIntelligence?.virusTotal ?? 0) > 0),
+              limit: typeof planData.plan.limits?.threatIntelligence?.virusTotal === 'object'
+                ? (planData.plan.limits.threatIntelligence.virusTotal.limit ?? 0)
+                : (planData.plan.limits?.threatIntelligence?.virusTotal ?? 0),
+            },
+            hybridAnalysis: {
+              enabled: typeof planData.plan.limits?.threatIntelligence?.hybridAnalysis === 'object'
+                ? (planData.plan.limits.threatIntelligence.hybridAnalysis.enabled ?? false)
+                : ((planData.plan.limits?.threatIntelligence?.hybridAnalysis ?? 0) > 0),
+              limit: typeof planData.plan.limits?.threatIntelligence?.hybridAnalysis === 'object'
+                ? (planData.plan.limits.threatIntelligence.hybridAnalysis.limit ?? 0)
+                : (planData.plan.limits?.threatIntelligence?.hybridAnalysis ?? 0),
+            },
+            abuseIPDB: {
+              enabled: typeof planData.plan.limits?.threatIntelligence?.abuseIPDB === 'object'
+                ? (planData.plan.limits.threatIntelligence.abuseIPDB.enabled ?? false)
+                : ((planData.plan.limits?.threatIntelligence?.abuseIPDB ?? planData.plan.limits?.threatIntelligence?.abuseIpDb ?? 0) > 0),
+              limit: typeof planData.plan.limits?.threatIntelligence?.abuseIPDB === 'object'
+                ? (planData.plan.limits.threatIntelligence.abuseIPDB.limit ?? 0)
+                : (planData.plan.limits?.threatIntelligence?.abuseIPDB ?? planData.plan.limits?.threatIntelligence?.abuseIpDb ?? 0),
+            },
+            malwareBazaar: {
+              enabled: typeof planData.plan.limits?.threatIntelligence?.malwareBazaar === 'object'
+                ? (planData.plan.limits.threatIntelligence.malwareBazaar.enabled ?? false)
+                : (planData.plan.limits?.threatIntelligence?.malwareBazaar ?? false),
+            },
+            urlhaus: {
+              enabled: typeof planData.plan.limits?.threatIntelligence?.urlhaus === 'object'
+                ? (planData.plan.limits.threatIntelligence.urlhaus.enabled ?? false)
+                : (planData.plan.limits?.threatIntelligence?.urlhaus ?? false),
+            },
+            threatFox: {
+              enabled: typeof planData.plan.limits?.threatIntelligence?.threatFox === 'object'
+                ? (planData.plan.limits.threatIntelligence.threatFox.enabled ?? false)
+                : (planData.plan.limits?.threatIntelligence?.threatFox ?? false),
+            },
+          },
         },
         features: planData.plan.features || [],
         isActive: planData.plan.isActive !== false,
@@ -223,6 +280,7 @@ export default function AdminPricing() {
                     <TableHead>Name</TableHead>
                     <TableHead>Price</TableHead>
                     <TableHead>Period</TableHead>
+                    <TableHead>Threat Intelligence</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -230,48 +288,85 @@ export default function AdminPricing() {
                 <TableBody>
                   {plans.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                         No pricing plans found. {isSuperAdmin && "Click 'Add Plan' to create one."}
                       </TableCell>
                     </TableRow>
                   ) : (
-                    plans.map((plan) => (
-                      <TableRow key={plan._id || plan.planId}>
-                        <TableCell className="font-medium">{plan.planId}</TableCell>
-                        <TableCell>{plan.name}</TableCell>
-                        <TableCell>
-                          {plan.currency} {plan.price}
-                        </TableCell>
-                        <TableCell>{plan.period}</TableCell>
-                        <TableCell>
-                          <Badge variant={plan.isActive ? "default" : "secondary"}>
-                            {plan.isActive ? "Active" : "Inactive"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {isSuperAdmin && (
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleEdit(plan)}
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              {plan.planId !== "free" && (
+                    plans.map((plan) => {
+                      const ti = plan.limits?.threatIntelligence || {};
+                      const enabledServices = [];
+                      
+                      if (ti.virusTotal?.enabled || (typeof ti.virusTotal === 'number' && ti.virusTotal > 0)) {
+                        enabledServices.push("VT");
+                      }
+                      if (ti.hybridAnalysis?.enabled || (typeof ti.hybridAnalysis === 'number' && ti.hybridAnalysis > 0)) {
+                        enabledServices.push("HA");
+                      }
+                      if (ti.abuseIPDB?.enabled || (typeof ti.abuseIPDB === 'number' && ti.abuseIPDB > 0)) {
+                        enabledServices.push("AIPDB");
+                      }
+                      if (ti.malwareBazaar?.enabled || ti.malwareBazaar === true) {
+                        enabledServices.push("MB");
+                      }
+                      if (ti.urlhaus?.enabled || ti.urlhaus === true) {
+                        enabledServices.push("UH");
+                      }
+                      if (ti.threatFox?.enabled || ti.threatFox === true) {
+                        enabledServices.push("TF");
+                      }
+                      
+                      return (
+                        <TableRow key={plan._id || plan.planId}>
+                          <TableCell className="font-medium">{plan.planId}</TableCell>
+                          <TableCell>{plan.name}</TableCell>
+                          <TableCell>
+                            {plan.currency} {plan.price}
+                          </TableCell>
+                          <TableCell>{plan.period}</TableCell>
+                          <TableCell>
+                            {enabledServices.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {enabledServices.map((service) => (
+                                  <Badge key={service} variant="outline" className="text-xs">
+                                    {service}
+                                  </Badge>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">None</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={plan.isActive ? "default" : "secondary"}>
+                              {plan.isActive ? "Active" : "Inactive"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {isSuperAdmin && (
+                              <div className="flex justify-end gap-2">
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => handleDelete(plan.planId)}
+                                  onClick={() => handleEdit(plan)}
                                 >
-                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                  <Edit className="h-4 w-4" />
                                 </Button>
-                              )}
-                            </div>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))
+                                {plan.planId !== "free" && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleDelete(plan.planId)}
+                                  >
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                )}
+                              </div>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
                   )}
                 </TableBody>
               </Table>
@@ -471,6 +566,271 @@ export default function AdminPricing() {
                       }
                       placeholder="Use 'Unlimited' for no limit"
                     />
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <Label className="text-lg font-semibold flex items-center gap-2">
+                  <ShieldAlert className="h-5 w-5" /> Threat Intelligence Services
+                </Label>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Enable/disable threat intelligence services for this plan and set daily API call limits.
+                </p>
+                
+                {/* Services with limits (VirusTotal, Hybrid Analysis, AbuseIPDB) */}
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 gap-4">
+                    {/* VirusTotal */}
+                    <div className="p-4 border rounded-lg space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="virusTotalEnabled" className="text-base font-medium">VirusTotal</Label>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="virusTotalEnabled"
+                            checked={formData.limits.threatIntelligence.virusTotal.enabled}
+                            onCheckedChange={(checked) =>
+                              setFormData({
+                                ...formData,
+                                limits: {
+                                  ...formData.limits,
+                                  threatIntelligence: {
+                                    ...formData.limits.threatIntelligence,
+                                    virusTotal: {
+                                      ...formData.limits.threatIntelligence.virusTotal,
+                                      enabled: checked === true,
+                                    },
+                                  },
+                                },
+                              })
+                            }
+                          />
+                          <Label htmlFor="virusTotalEnabled" className="cursor-pointer">Enabled</Label>
+                        </div>
+                      </div>
+                      {formData.limits.threatIntelligence.virusTotal.enabled && (
+                        <div className="space-y-2">
+                          <Label htmlFor="virusTotalLimit">Daily API Calls Limit</Label>
+                          <Input
+                            id="virusTotalLimit"
+                            type="text"
+                            value={formData.limits.threatIntelligence.virusTotal.limit === Infinity || formData.limits.threatIntelligence.virusTotal.limit === -1 ? "Unlimited" : formData.limits.threatIntelligence.virusTotal.limit}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                limits: {
+                                  ...formData.limits,
+                                  threatIntelligence: {
+                                    ...formData.limits.threatIntelligence,
+                                    virusTotal: {
+                                      ...formData.limits.threatIntelligence.virusTotal,
+                                      limit: e.target.value.toLowerCase() === "unlimited" ? -1 : parseInt(e.target.value) || 0,
+                                    },
+                                  },
+                                },
+                              })
+                            }
+                            placeholder="Use 'Unlimited' or 0 for disabled"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Hybrid Analysis */}
+                    <div className="p-4 border rounded-lg space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="hybridAnalysisEnabled" className="text-base font-medium">Hybrid Analysis</Label>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="hybridAnalysisEnabled"
+                            checked={formData.limits.threatIntelligence.hybridAnalysis.enabled}
+                            onCheckedChange={(checked) =>
+                              setFormData({
+                                ...formData,
+                                limits: {
+                                  ...formData.limits,
+                                  threatIntelligence: {
+                                    ...formData.limits.threatIntelligence,
+                                    hybridAnalysis: {
+                                      ...formData.limits.threatIntelligence.hybridAnalysis,
+                                      enabled: checked === true,
+                                    },
+                                  },
+                                },
+                              })
+                            }
+                          />
+                          <Label htmlFor="hybridAnalysisEnabled" className="cursor-pointer">Enabled</Label>
+                        </div>
+                      </div>
+                      {formData.limits.threatIntelligence.hybridAnalysis.enabled && (
+                        <div className="space-y-2">
+                          <Label htmlFor="hybridAnalysisLimit">Daily API Calls Limit</Label>
+                          <Input
+                            id="hybridAnalysisLimit"
+                            type="text"
+                            value={formData.limits.threatIntelligence.hybridAnalysis.limit === Infinity || formData.limits.threatIntelligence.hybridAnalysis.limit === -1 ? "Unlimited" : formData.limits.threatIntelligence.hybridAnalysis.limit}
+                            onChange={(e) => {
+                              const value = e.target.value.trim();
+                              setFormData({
+                                ...formData,
+                                limits: {
+                                  ...formData.limits,
+                                  threatIntelligence: {
+                                    ...formData.limits.threatIntelligence,
+                                    hybridAnalysis: {
+                                      ...formData.limits.threatIntelligence.hybridAnalysis,
+                                      limit: value.toLowerCase() === "unlimited" ? -1 : (value === "" ? 0 : parseInt(value) || 0),
+                                    },
+                                  },
+                                },
+                              });
+                            }}
+                            placeholder="Daily limit (e.g., 20) or 'Unlimited' for -1"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Enter a number for daily limit, or "Unlimited" for unlimited (-1). Use 0 to disable.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* AbuseIPDB */}
+                    <div className="p-4 border rounded-lg space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="abuseIPDBEnabled" className="text-base font-medium">AbuseIPDB</Label>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="abuseIPDBEnabled"
+                            checked={formData.limits.threatIntelligence.abuseIPDB.enabled}
+                            onCheckedChange={(checked) =>
+                              setFormData({
+                                ...formData,
+                                limits: {
+                                  ...formData.limits,
+                                  threatIntelligence: {
+                                    ...formData.limits.threatIntelligence,
+                                    abuseIPDB: {
+                                      ...formData.limits.threatIntelligence.abuseIPDB,
+                                      enabled: checked === true,
+                                    },
+                                  },
+                                },
+                              })
+                            }
+                          />
+                          <Label htmlFor="abuseIPDBEnabled" className="cursor-pointer">Enabled</Label>
+                        </div>
+                      </div>
+                      {formData.limits.threatIntelligence.abuseIPDB.enabled && (
+                        <div className="space-y-2">
+                          <Label htmlFor="abuseIPDBLimit">Daily API Calls Limit</Label>
+                          <Input
+                            id="abuseIPDBLimit"
+                            type="text"
+                            value={formData.limits.threatIntelligence.abuseIPDB.limit === Infinity || formData.limits.threatIntelligence.abuseIPDB.limit === -1 ? "Unlimited" : formData.limits.threatIntelligence.abuseIPDB.limit}
+                            onChange={(e) => {
+                              const value = e.target.value.trim();
+                              setFormData({
+                                ...formData,
+                                limits: {
+                                  ...formData.limits,
+                                  threatIntelligence: {
+                                    ...formData.limits.threatIntelligence,
+                                    abuseIPDB: {
+                                      ...formData.limits.threatIntelligence.abuseIPDB,
+                                      limit: value.toLowerCase() === "unlimited" ? -1 : (value === "" ? 0 : parseInt(value) || 0),
+                                    },
+                                  },
+                                },
+                              });
+                            }}
+                            placeholder="Daily limit (e.g., 100) or 'Unlimited' for -1"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Enter a number for daily limit, or "Unlimited" for unlimited (-1). Use 0 to disable.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Boolean services (MalwareBazaar, URLhaus, ThreatFox) */}
+                  <div className="grid grid-cols-3 gap-4 mt-4">
+                    <div className="p-4 border rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="malwareBazaarEnabled" className="text-base font-medium">MalwareBazaar</Label>
+                        <Checkbox
+                          id="malwareBazaarEnabled"
+                          checked={formData.limits.threatIntelligence.malwareBazaar.enabled}
+                          onCheckedChange={(checked) =>
+                            setFormData({
+                              ...formData,
+                              limits: {
+                                ...formData.limits,
+                                threatIntelligence: {
+                                  ...formData.limits.threatIntelligence,
+                                  malwareBazaar: {
+                                    enabled: checked === true,
+                                  },
+                                },
+                              },
+                            })
+                          }
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">Free, unlimited service</p>
+                    </div>
+
+                    <div className="p-4 border rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="urlhausEnabled" className="text-base font-medium">URLhaus</Label>
+                        <Checkbox
+                          id="urlhausEnabled"
+                          checked={formData.limits.threatIntelligence.urlhaus.enabled}
+                          onCheckedChange={(checked) =>
+                            setFormData({
+                              ...formData,
+                              limits: {
+                                ...formData.limits,
+                                threatIntelligence: {
+                                  ...formData.limits.threatIntelligence,
+                                  urlhaus: {
+                                    enabled: checked === true,
+                                  },
+                                },
+                              },
+                            })
+                          }
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">Free, unlimited service</p>
+                    </div>
+
+                    <div className="p-4 border rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="threatFoxEnabled" className="text-base font-medium">ThreatFox</Label>
+                        <Checkbox
+                          id="threatFoxEnabled"
+                          checked={formData.limits.threatIntelligence.threatFox.enabled}
+                          onCheckedChange={(checked) =>
+                            setFormData({
+                              ...formData,
+                              limits: {
+                                ...formData.limits,
+                                threatIntelligence: {
+                                  ...formData.limits.threatIntelligence,
+                                  threatFox: {
+                                    enabled: checked === true,
+                                  },
+                                },
+                              },
+                            })
+                          }
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">Free, unlimited service</p>
+                    </div>
                   </div>
                 </div>
               </div>

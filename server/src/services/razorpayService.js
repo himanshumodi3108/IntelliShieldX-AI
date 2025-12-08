@@ -59,7 +59,7 @@ setTimeout(() => {
 
 // Transaction fee rate (typically 2% for domestic cards, charged to customer)
 // If set to 0 or empty, no transaction fee will be charged
-const TRANSACTION_FEE_RATE_ENV = process.env.TRANSACTION_FEE_RATE || "2";
+const TRANSACTION_FEE_RATE_ENV = process.env.TRANSACTION_FEE_RATE || "0";
 export const TRANSACTION_FEE_RATE = parseFloat(TRANSACTION_FEE_RATE_ENV) / 100; // Convert percentage to decimal
 
 // Default plan pricing (fallback if database is not available)
@@ -230,24 +230,56 @@ const DEFAULT_PLAN_LIMITS = {
     repositories: 1,
     scans: 5,
     chatMessages: 100,
+    threatIntelligence: {
+      virusTotal: 0,
+      hybridAnalysis: 0,
+      abuseIPDB: 0,
+      malwareBazaar: false,
+      urlhaus: false,
+      threatFox: false,
+    },
   },
   standard: {
     documentation: 10,
     repositories: 10,
     scans: 50,
     chatMessages: 1000,
+    threatIntelligence: {
+      virusTotal: 10,
+      hybridAnalysis: 0,
+      abuseIPDB: 0,
+      malwareBazaar: true,
+      urlhaus: true,
+      threatFox: true,
+    },
   },
   pro: {
     documentation: 25,
     repositories: 25,
     scans: 200,
     chatMessages: 5000,
+    threatIntelligence: {
+      virusTotal: { enabled: true, limit: 50 },
+      hybridAnalysis: { enabled: true, limit: 20 },
+      abuseIPDB: { enabled: true, limit: 100 },
+      malwareBazaar: { enabled: true },
+      urlhaus: { enabled: true },
+      threatFox: { enabled: true },
+    },
   },
   enterprise: {
     documentation: Infinity,
     repositories: Infinity,
     scans: Infinity,
     chatMessages: Infinity,
+    threatIntelligence: {
+      virusTotal: -1, // -1 means unlimited (subject to API limits)
+      hybridAnalysis: 100,
+      abuseIPDB: 1000,
+      malwareBazaar: true,
+      urlhaus: true,
+      threatFox: true,
+    },
   },
 };
 
@@ -472,15 +504,15 @@ export const checkAndDeactivateOnLimitReached = async (user, limits) => {
     return false;
   }
 
-  // Check if any limit is reached
+  // Check if any limit is reached (price-based model: use maximum ever connected count)
   const Repository = (await import("../models/Repository.js")).default;
-  const repositoryCount = await Repository.countDocuments({ userId: user._id, isActive: true });
+  const maxRepositoryCount = user.usage.repositoryCount || 0;
 
   const limitsReached = {
     documentation: limits.documentation !== Infinity && (user.usage.documentation || 0) >= limits.documentation,
     scans: limits.scans !== Infinity && (user.usage.scans || 0) >= limits.scans,
     chatMessages: limits.chatMessages !== Infinity && (user.usage.chatMessages || 0) >= limits.chatMessages,
-    repositories: limits.repositories !== Infinity && repositoryCount >= limits.repositories,
+    repositories: limits.repositories !== Infinity && maxRepositoryCount >= limits.repositories,
   };
 
   const anyLimitReached = Object.values(limitsReached).some(reached => reached);

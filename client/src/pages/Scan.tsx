@@ -2,10 +2,11 @@ import { useState, useEffect } from "react";
 import { Navbar } from "@/components/layout/Navbar";
 import { FileUploader } from "@/components/scan/FileUploader";
 import { UrlScanner } from "@/components/scan/UrlScanner";
+import { HashScanner } from "@/components/scan/HashScanner";
 import { ScanResults } from "@/components/scan/ScanResults";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileCode, Globe, Loader2, Play } from "lucide-react";
+import { FileCode, Globe, Hash, Loader2, Play } from "lucide-react";
 import { toast } from "sonner";
 import { scanApi } from "@/lib/api";
 import { useSearchParams } from "react-router-dom";
@@ -13,6 +14,7 @@ import { useSearchParams } from "react-router-dom";
 const Scan = () => {
   const [searchParams] = useSearchParams();
   const [files, setFiles] = useState<File[]>([]);
+  const [passwords, setPasswords] = useState<Record<string, string>>({});
   const [isScanning, setIsScanning] = useState(false);
   const [isLoadingScan, setIsLoadingScan] = useState(false);
   const [showResults, setShowResults] = useState(false);
@@ -34,7 +36,12 @@ const Scan = () => {
     
     setIsScanning(true);
     try {
-      const result = await scanApi.uploadFiles(files);
+      // Filter out empty passwords
+      const validPasswords = Object.fromEntries(
+        Object.entries(passwords).filter(([_, pwd]) => pwd && pwd.trim() !== "")
+      );
+      
+      const result = await scanApi.uploadFiles(files, validPasswords);
       setScanData(result);
       setShowResults(true);
       toast.success("AI-powered scan completed successfully!");
@@ -44,6 +51,11 @@ const Scan = () => {
     } finally {
       setIsScanning(false);
     }
+  };
+
+  const handleFilesSelected = (newFiles: File[], newPasswords: Record<string, string>) => {
+    setFiles(newFiles);
+    setPasswords(newPasswords);
   };
 
   const handleUrlScan = async (url: string) => {
@@ -56,6 +68,22 @@ const Scan = () => {
     } catch (error: any) {
       console.error("Scan error:", error);
       toast.error(error.message || "Failed to scan URL. Please try again.");
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
+  const handleHashScan = async (hash: string, hashType: "sha256" | "sha1" | "md5") => {
+    console.log("handleHashScan called with:", { hash, hashType, hashLength: hash?.length });
+    setIsScanning(true);
+    try {
+      const result = await scanApi.scanUrl(undefined, hash, hashType);
+      setScanData(result);
+      setShowResults(true);
+      toast.success(`Hash analysis completed!`);
+    } catch (error: any) {
+      console.error("Scan error:", error);
+      toast.error(error.message || "Failed to scan hash. Please try again.");
     } finally {
       setIsScanning(false);
     }
@@ -134,14 +162,14 @@ const Scan = () => {
               Start a <span className="text-gradient">Security Scan</span>
             </h1>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Upload source code files or enter a URL to analyze for security vulnerabilities.
+              Upload source code files, enter a URL, or scan an IP address to analyze for security vulnerabilities.
               Our AI will detect issues and generate secure code fixes.
             </p>
           </div>
 
           {/* Scan Options */}
           <Tabs defaultValue="file" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-8 bg-secondary/50 p-1 rounded-xl">
+            <TabsList className="grid w-full grid-cols-3 mb-8 bg-secondary/50 p-1 rounded-xl">
               <TabsTrigger
                 value="file"
                 className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg"
@@ -154,12 +182,19 @@ const Scan = () => {
                 className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg"
               >
                 <Globe className="h-4 w-4" />
-                URL Scanner
+                URL & IP Scanner
+              </TabsTrigger>
+              <TabsTrigger
+                value="hash"
+                className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg"
+              >
+                <Hash className="h-4 w-4" />
+                Hash Scanner
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="file" className="space-y-6">
-              <FileUploader onFilesSelected={setFiles} />
+              <FileUploader onFilesSelected={handleFilesSelected} />
               
               {files.length > 0 && (
                 <Button
@@ -186,6 +221,10 @@ const Scan = () => {
 
             <TabsContent value="url">
               <UrlScanner onScan={handleUrlScan} isScanning={isScanning} />
+            </TabsContent>
+
+            <TabsContent value="hash">
+              <HashScanner onScan={handleHashScan} isScanning={isScanning} />
             </TabsContent>
           </Tabs>
         </div>

@@ -10,6 +10,7 @@ import {
   getRepositoryContents,
   getRepositoryFileContent,
 } from "../services/githubService.js";
+import { unifiedThreatIntelligenceService } from "../services/unifiedThreatIntelligenceService.js";
 import axios from "axios";
 
 const router = express.Router();
@@ -181,18 +182,9 @@ router.post("/connect", async (req, res, next) => {
       return res.status(404).json({ error: "User not found" });
     }
 
-    // Check repository limit
+    // Check repository limit using maximum ever connected count (price-based model)
     const limit = REPOSITORY_LIMITS[user.plan] || 1;
-    const currentCount = await Repository.countDocuments({
-      userId: req.user.userId,
-      isActive: true,
-    });
-
-    if (currentCount >= limit) {
-      return res.status(403).json({
-        error: `Repository limit reached. Your ${user.plan} plan allows ${limit === Infinity ? "unlimited" : limit} ${limit === 1 ? "repository" : "repositories"}.`,
-      });
-    }
+    const maxRepositoryCount = user.usage.repositoryCount || 0;
 
     // Get connected account for this provider
     const account = await ConnectedAccount.findOne({
@@ -216,7 +208,7 @@ router.post("/connect", async (req, res, next) => {
       if (existing.isActive) {
         return res.status(400).json({ error: "Repository is already connected" });
       } else {
-        // Reactivate existing repository
+        // Reactivate existing repository (don't increment count - already counted)
         existing.isActive = true;
         await existing.save();
         return res.json({
@@ -224,6 +216,13 @@ router.post("/connect", async (req, res, next) => {
           repository: existing,
         });
       }
+    }
+
+    // Check limit before creating new repository (price-based: count never decreases)
+    if (limit !== Infinity && maxRepositoryCount >= limit) {
+      return res.status(403).json({
+        error: `Repository limit reached. Your ${user.plan} plan allows ${limit} ${limit === 1 ? "repository" : "repositories"}. The limit is based on the maximum number of repositories you've ever connected, not the current active count.`,
+      });
     }
 
     // Create new repository connection
@@ -243,6 +242,18 @@ router.post("/connect", async (req, res, next) => {
     });
 
     await repository.save();
+
+    // Increment maximum repository count (price-based: count never decreases)
+    const currentActiveCount = await Repository.countDocuments({
+      userId: req.user.userId,
+      isActive: true,
+    });
+    
+    // Update maximum count if current active count exceeds it
+    if (currentActiveCount > maxRepositoryCount) {
+      user.usage.repositoryCount = currentActiveCount;
+      await user.save();
+    }
 
     res.status(201).json({
       message: "Repository connected successfully",
@@ -345,15 +356,19 @@ router.delete("/:id", async (req, res, next) => {
       });
     }
 
-    // Deactivate repository
+    // Deactivate repository (price-based model: count never decreases)
     repository.isActive = false;
     await repository.save();
 
-    // Increment deletion count for free users
+    // Increment deletion count for free users (for tracking purposes only)
     if (user.plan === "free") {
       user.repositoryDeletionCount = (user.repositoryDeletionCount || 0) + 1;
       await user.save();
     }
+
+    // Note: We do NOT decrement user.usage.repositoryCount
+    // This ensures the price-based model where counts never decrease
+    // The limit is based on maximum repositories ever connected, not current active count
 
     res.json({ message: "Repository disconnected successfully" });
   } catch (error) {
@@ -503,16 +518,36 @@ router.post("/:id/scan", async (req, res, next) => {
     const PYTHON_ENGINE_URL = process.env.PYTHON_ENGINE_URL || "http://localhost:5000";
 
     try {
-      const aiResponse = await axios.post(
-        `${PYTHON_ENGINE_URL}/api/analyze/security`,
-        {
-          files: fileContents,
-          scanId,
-        },
-        {
-          timeout: 300000, // 5 minutes timeout for repository analysis
-        }
-      );
+      // Run AI analysis and threat intelligence scans in parallel
+      // For repositories, we'll:
+      // 1. Run AI analysis on all files for code vulnerability detection
+      // 2. Scan the repository URL for threat intelligence (URL reputation check)
+
+      // Get user's plan for plan-specific service enablement
+      const user = await User.findById(req.user.userId).lean();
+      const userPlan = user?.plan || "free";
+
+      // Run AI analysis and threat intelligence in parallel
+      const [aiResponse, threatIntelligenceResults] = await Promise.all([
+        axios.post(
+          `${PYTHON_ENGINE_URL}/api/analyze/security`,
+          {
+            files: fileContents,
+            scanId,
+          },
+          {
+            timeout: 300000, // 5 minutes timeout for repository analysis
+          }
+        ).catch(err => {
+          console.error("AI engine error:", err.message);
+          return { data: { vulnerabilities: [], summary: {}, aiInsights: null }, error: err };
+        }),
+        // Scan repository URL for threat intelligence
+        repository.url ? unifiedThreatIntelligenceService.scanURL(repository.url, userPlan, scanId).catch(err => {
+          console.error("Threat intelligence URL scan error:", err.message);
+          return {};
+        }) : Promise.resolve({}),
+      ]);
 
       const scanDuration = Math.round((Date.now() - scanStartTime) / 1000);
       const vulnerabilities = aiResponse.data.vulnerabilities || [];
@@ -529,9 +564,26 @@ router.post("/:id/scan", async (req, res, next) => {
           line = undefined;
         }
         
+        // Convert originalCode and fixCode to strings if they are objects
+        let originalCode = vuln.originalCode;
+        if (originalCode !== undefined && originalCode !== null && typeof originalCode === "object") {
+          originalCode = JSON.stringify(originalCode, null, 2);
+        } else if (originalCode !== undefined && originalCode !== null) {
+          originalCode = String(originalCode);
+        }
+        
+        let fixCode = vuln.fixCode;
+        if (fixCode !== undefined && fixCode !== null && typeof fixCode === "object") {
+          fixCode = JSON.stringify(fixCode, null, 2);
+        } else if (fixCode !== undefined && fixCode !== null) {
+          fixCode = String(fixCode);
+        }
+        
         return {
           ...vuln,
           line: line, // Will be undefined if not a valid number
+          originalCode: originalCode,
+          fixCode: fixCode,
         };
       });
       
@@ -543,13 +595,37 @@ router.post("/:id/scan", async (req, res, next) => {
       const summary = aiResponse.data.summary || { critical: 0, high: 0, medium: 0, low: 0 };
       summary.owaspTop10 = owaspTop10Count;
 
-      // Update scan record
+      // Calculate overall security assessment
+      const overallSecurity = await unifiedThreatIntelligenceService.calculateOverallSecurity(
+        { summary, vulnerabilities: sanitizedVulnerabilities },
+        threatIntelligenceResults
+      );
+
+      // Generate AI insights for threat intelligence (if threat intelligence results exist)
+      let threatIntelligenceInsights = null;
+      if (threatIntelligenceResults && Object.keys(threatIntelligenceResults).length > 0) {
+        try {
+          threatIntelligenceInsights = await unifiedThreatIntelligenceService.generateThreatIntelligenceInsights(
+            threatIntelligenceResults,
+            repository.url || repository.fullName,
+            "url"
+          );
+        } catch (insightsError) {
+          console.error("Error generating threat intelligence insights:", insightsError);
+          // Continue without insights
+        }
+      }
+
+      // Update scan record with threat intelligence data
       scan.status = "completed";
       scan.vulnerabilities = sanitizedVulnerabilities;
       scan.summary = summary;
       scan.aiInsights = aiResponse.data.aiInsights || null;
+      scan.threatIntelligenceInsights = threatIntelligenceInsights || null;
       scan.scanDuration = scanDuration;
       scan.filesAnalyzed = fileContents.length;
+      scan.threatIntelligence = threatIntelligenceResults || {};
+      scan.overallSecurity = overallSecurity;
       await scan.save();
 
       // Update repository with scan results
@@ -572,8 +648,11 @@ router.post("/:id/scan", async (req, res, next) => {
         vulnerabilities,
         summary,
         aiInsights: aiResponse.data.aiInsights || null,
+        threatIntelligenceInsights: threatIntelligenceInsights,
         filesAnalyzed: fileContents.length,
         scanDuration,
+        threatIntelligence: threatIntelligenceResults,
+        overallSecurity,
       });
     } catch (aiError) {
       // If AI engine is not available, save scan with error status

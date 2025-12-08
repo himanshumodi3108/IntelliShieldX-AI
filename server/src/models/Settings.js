@@ -10,7 +10,7 @@ const settingsSchema = new mongoose.Schema(
     category: {
       type: String,
       required: true,
-      enum: ["general", "oauth", "payments", "email", "features"],
+      enum: ["general", "oauth", "payments", "email", "features", "threatIntelligence"],
     },
     value: {
       type: mongoose.Schema.Types.Mixed,

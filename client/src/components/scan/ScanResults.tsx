@@ -7,6 +7,7 @@ import {
   FileText, 
   Copy, 
   Check,
+  CheckCircle2,
   Download,
   MessageSquare,
   Send,
@@ -18,9 +19,11 @@ import {
   X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -61,6 +64,108 @@ const severityConfig = {
   medium: { color: "text-yellow-500", bg: "bg-yellow-500/20", label: "Medium" },
   low: { color: "text-blue-500", bg: "bg-blue-500/20", label: "Low" },
 };
+
+function RecommendationCard({ rec, index }: { rec: string | any; index: number }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const recTitle = typeof rec === 'string' ? rec : rec.title;
+  const recData = typeof rec === 'string' ? null : rec;
+
+  if (!recData) {
+    return (
+      <li className="flex items-start gap-3 p-3 rounded-lg bg-secondary/30 border border-border">
+        <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+        <span className="text-sm">{recTitle}</span>
+      </li>
+    );
+  }
+
+  return (
+    <li className="rounded-lg bg-secondary/30 border border-border overflow-hidden">
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full flex items-start gap-3 p-4 hover:bg-secondary/50 transition-colors cursor-pointer"
+      >
+        <CheckCircle2 className={`h-5 w-5 mt-0.5 shrink-0 ${recData.severity === 'critical' ? 'text-red-500' : recData.severity === 'high' ? 'text-orange-500' : 'text-primary'}`} />
+        <div className="flex-1 text-left">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-sm font-medium">{recTitle}</span>
+            {recData.severity && (
+              <Badge variant={recData.severity === 'critical' ? 'destructive' : recData.severity === 'high' ? 'default' : 'secondary'} className="text-xs">
+                {recData.severity}
+              </Badge>
+            )}
+          </div>
+          {recData.description && (
+            <p className="text-xs text-muted-foreground">{recData.description}</p>
+          )}
+        </div>
+        {isExpanded ? (
+          <ChevronDown className="h-5 w-5 text-muted-foreground shrink-0" />
+        ) : (
+          <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
+        )}
+      </button>
+      {isExpanded && (
+        <div className="px-4 pb-4 space-y-4 border-t border-border pt-4">
+          {recData.symptoms && recData.symptoms.length > 0 && (
+            <div>
+              <h5 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-orange-500" />
+                Symptoms
+              </h5>
+              <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground ml-6">
+                {recData.symptoms.map((symptom: string, idx: number) => (
+                  <li key={idx}>{symptom}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {recData.impact && (
+            <div>
+              <h5 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                <Shield className="h-4 w-4 text-red-500" />
+                Potential Impact
+              </h5>
+              <p className="text-sm text-muted-foreground ml-6">{recData.impact}</p>
+            </div>
+          )}
+          {recData.removalSteps && recData.removalSteps.length > 0 && (
+            <div>
+              <h5 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                <FileText className="h-4 w-4 text-primary" />
+                Removal Steps
+              </h5>
+              <ol className="list-decimal list-inside space-y-1 text-sm text-muted-foreground ml-6">
+                {recData.removalSteps.map((step: string, idx: number) => (
+                  <li key={idx}>{step}</li>
+                ))}
+              </ol>
+            </div>
+          )}
+          {recData.prevention && recData.prevention.length > 0 && (
+            <div>
+              <h5 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                <Shield className="h-4 w-4 text-green-500" />
+                Prevention
+              </h5>
+              <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground ml-6">
+                {recData.prevention.map((prevent: string, idx: number) => (
+                  <li key={idx}>{prevent}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {recData.malwareFamily && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>Malware Family:</span>
+              <Badge variant="outline">{recData.malwareFamily}</Badge>
+            </div>
+          )}
+        </div>
+      )}
+    </li>
+  );
+}
 
 function VulnerabilityCard({ vuln }: { vuln: Vulnerability }) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -277,6 +382,85 @@ function VulnerabilityCard({ vuln }: { vuln: Vulnerability }) {
   );
 }
 
+interface ThreatIntelligence {
+  hashes?: {
+    md5?: string;
+    sha1?: string;
+    sha256?: string;
+  };
+  virusTotal?: {
+    scanned: boolean;
+    found?: boolean;
+    positives?: number;
+    total?: number;
+    detectionRate?: number;
+    status?: "malicious" | "suspicious" | "clean" | "unknown";
+    permalink?: string;
+    tags?: string[];
+    typeDescription?: string;
+    meaningfulName?: string;
+  };
+  malwareBazaar?: {
+    scanned: boolean;
+    found?: boolean;
+    malwareType?: string;
+    fileType?: string;
+    fileTypeMime?: string;
+    malwareFamily?: string;
+    signature?: string;
+    threatLevel?: "critical" | "high" | "medium" | "low";
+    permalink?: string;
+    tags?: string[];
+  };
+  urlhaus?: {
+    scanned: boolean;
+    found?: boolean;
+    status?: "malicious" | "suspicious" | "clean" | "unknown";
+    threat?: string;
+    permalink?: string;
+  };
+  hybridAnalysis?: {
+    scanned: boolean;
+    found?: boolean;
+    threatScore?: number;
+    verdict?: string;
+    malwareFamily?: string;
+    permalink?: string;
+  };
+  abuseIPDB?: {
+    scanned: boolean;
+    ip?: string;
+    abuseConfidence?: number;
+    status?: "malicious" | "suspicious" | "clean" | "unknown";
+    totalReports?: number;
+    isp?: string;
+    countryCode?: string;
+    usageType?: string;
+    isWhitelisted?: boolean;
+    permalink?: string;
+  };
+  threatFox?: {
+    scanned: boolean;
+    found?: boolean;
+    ioc?: string;
+    iocType?: string;
+    threatType?: string;
+    malwareFamily?: string;
+    confidenceLevel?: number;
+    firstSeen?: string;
+    lastSeen?: string;
+    tags?: string[];
+    permalink?: string;
+  };
+}
+
+interface OverallSecurity {
+  status: "critical" | "high" | "medium" | "low" | "safe";
+  score: number;
+  summary: string;
+  recommendations?: string[];
+}
+
 interface ScanResultsProps {
   scanData?: {
     scanId?: string;
@@ -291,10 +475,22 @@ interface ScanResultsProps {
       owaspTop10?: number;
     };
     aiInsights?: string;
+    threatIntelligenceInsights?: string;
     warning?: string;
+    malwareWarning?: {
+      file: string;
+      positives: number;
+      total: number;
+      detectionRate: number;
+      status: string;
+      permalink?: string;
+      message: string;
+    };
     scanDuration?: number;
     filesAnalyzed?: number;
     createdAt?: string | Date;
+    threatIntelligence?: ThreatIntelligence;
+    overallSecurity?: OverallSecurity;
     chatMessages?: Array<{
       _id?: string;
       id?: string;
@@ -307,7 +503,7 @@ interface ScanResultsProps {
 
 export function ScanResults({ scanData }: ScanResultsProps) {
   const { isAuthenticated } = useAuth();
-  const [activeTab, setActiveTab] = useState<"results" | "chat">("results");
+  const [activeTab, setActiveTab] = useState<"overview" | "vulnerabilities" | "threatIntelligence" | "aiInsights" | "recommendations" | "chat">("overview");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [isChatLoading, setIsChatLoading] = useState(false);
@@ -721,9 +917,12 @@ Now answer the user's question about these scan results: ${messageContent}
         vulnerabilities: vulnerabilities,
         summary: summary,
         aiInsights: aiInsights,
+        threatIntelligenceInsights: scanData.threatIntelligenceInsights,
         scanDuration: scanData.scanDuration,
         filesAnalyzed: scanData.filesAnalyzed,
         createdAt: scanData.createdAt || new Date(),
+        threatIntelligence: scanData.threatIntelligence,
+        overallSecurity: scanData.overallSecurity,
       });
       toast.success("Scan report downloaded successfully!");
     } catch (error) {
@@ -775,20 +974,6 @@ Now answer the user's question about these scan results: ${messageContent}
         </div>
       )}
 
-      {/* AI Insights */}
-      {aiInsights && (
-        <div className="p-6 rounded-2xl glass border border-primary/20">
-          <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-            <FileText className="h-5 w-5 text-primary" />
-            AI Security Insights
-          </h3>
-          <div 
-            className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground"
-            dangerouslySetInnerHTML={{ __html: formatAIInsights(aiInsights) }}
-          />
-        </div>
-      )}
-
       {/* Summary */}
       <div className="p-6 rounded-2xl glass">
         <div className="flex items-center justify-between mb-4">
@@ -820,14 +1005,42 @@ Now answer the user's question about these scan results: ${messageContent}
       </div>
 
       {/* Tabs for Results and Chat */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "results" | "chat")}>
-        <TabsList className="grid w-full grid-cols-2 mb-6 bg-secondary/50 p-1 rounded-xl">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "overview" | "vulnerabilities" | "threatIntelligence" | "recommendations" | "aiInsights" | "chat")}>
+        <TabsList className="grid w-full grid-cols-6 mb-6 bg-secondary/50 p-1 rounded-xl">
           <TabsTrigger
-            value="results"
+            value="overview"
+            className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg"
+          >
+            <Shield className="h-4 w-4" />
+            Overview
+          </TabsTrigger>
+          <TabsTrigger
+            value="vulnerabilities"
             className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg"
           >
             <FileText className="h-4 w-4" />
             Vulnerabilities ({vulnerabilities.length})
+          </TabsTrigger>
+          <TabsTrigger
+            value="threatIntelligence"
+            className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg"
+          >
+            <AlertTriangle className="h-4 w-4" />
+            Threat Intel
+          </TabsTrigger>
+          <TabsTrigger
+            value="aiInsights"
+            className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg"
+          >
+            <FileText className="h-4 w-4" />
+            AI Insights
+          </TabsTrigger>
+          <TabsTrigger
+            value="recommendations"
+            className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg"
+          >
+            <CheckCircle2 className="h-4 w-4" />
+            Recommendations
           </TabsTrigger>
           <TabsTrigger
             value="chat"
@@ -843,7 +1056,193 @@ Now answer the user's question about these scan results: ${messageContent}
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="results" className="space-y-3">
+        {/* Overview Tab - Unified Security Assessment */}
+        <TabsContent value="overview" className="space-y-6">
+          {/* Malware Warning - Display prominently if detected */}
+          {scanData?.malwareWarning && (
+            <Card className="glass border-red-500/50 bg-red-500/10">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-red-500">
+                  <AlertTriangle className="h-5 w-5" />
+                  Malware Detected - Pre-Scan Warning
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-sm font-medium text-red-400">
+                  {scanData.malwareWarning.message}
+                </p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Detection Rate</Label>
+                    <p className="text-sm font-semibold">
+                      {scanData.malwareWarning.positives}/{scanData.malwareWarning.total} ({scanData.malwareWarning.detectionRate}%)
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Status</Label>
+                    <Badge variant="destructive" className="mt-1">
+                      {scanData.malwareWarning.status}
+                    </Badge>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">File</Label>
+                    <p className="text-sm font-mono truncate">{scanData.malwareWarning.file}</p>
+                  </div>
+                  {scanData.malwareWarning.permalink && (
+                    <div>
+                      <a
+                        href={scanData.malwareWarning.permalink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-primary hover:underline"
+                      >
+                        View on VirusTotal →
+                      </a>
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground pt-2 border-t border-border">
+                  ⚠️ This file was flagged by VirusTotal before processing. Analysis continues for security research purposes. The file has been automatically deleted from the server after scanning.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {scanData?.overallSecurity && (
+            <>
+              {/* Overall Security Score Card */}
+              <Card className="glass border-border/50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Shield className="h-5 w-5" />
+                    Overall Security Assessment
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-4xl font-bold mb-2">
+                        {scanData.overallSecurity.score}/100
+                      </div>
+                      <Badge 
+                        variant={
+                          scanData.overallSecurity.status === "critical" ? "destructive" :
+                          scanData.overallSecurity.status === "high" ? "destructive" :
+                          scanData.overallSecurity.status === "medium" ? "default" :
+                          scanData.overallSecurity.status === "low" ? "secondary" : "outline"
+                        }
+                        className="text-sm"
+                      >
+                        {scanData.overallSecurity.status.toUpperCase()}
+                      </Badge>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-muted-foreground mb-1">Security Status</p>
+                      <p className="text-lg font-semibold">{scanData.overallSecurity.summary}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Threat Summary Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Code Vulnerabilities */}
+                <Card className="glass border-border/50">
+                  <CardHeader>
+                    <CardTitle className="text-base">Code Vulnerabilities</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span>Critical</span>
+                        <Badge variant="destructive">{summary.critical}</Badge>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>High</span>
+                        <Badge variant="destructive">{summary.high}</Badge>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Medium</span>
+                        <Badge variant="default">{summary.medium}</Badge>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Low</span>
+                        <Badge variant="secondary">{summary.low}</Badge>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Threat Intelligence */}
+                <Card className="glass border-border/50">
+                  <CardHeader>
+                    <CardTitle className="text-base">Threat Intelligence</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {scanData.threatIntelligence?.virusTotal?.scanned && (
+                        <div className="flex justify-between">
+                          <span>VirusTotal</span>
+                          <Badge variant={scanData.threatIntelligence.virusTotal.status === "malicious" ? "destructive" : "secondary"}>
+                            {scanData.threatIntelligence.virusTotal.status || "Unknown"}
+                          </Badge>
+                        </div>
+                      )}
+                      {scanData.threatIntelligence?.malwareBazaar?.scanned && (
+                        <div className="flex justify-between">
+                          <span>MalwareBazaar</span>
+                          <Badge variant={scanData.threatIntelligence.malwareBazaar.found ? "destructive" : "outline"}>
+                            {scanData.threatIntelligence.malwareBazaar.found ? "Found" : "Not Found"}
+                          </Badge>
+                        </div>
+                      )}
+                      {scanData.threatIntelligence?.urlhaus?.scanned && (
+                        <div className="flex justify-between">
+                          <span>URLhaus</span>
+                          <Badge variant={scanData.threatIntelligence.urlhaus.status === "malicious" ? "destructive" : "secondary"}>
+                            {scanData.threatIntelligence.urlhaus.status || "Unknown"}
+                          </Badge>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* File Hashes */}
+              {scanData.threatIntelligence?.hashes && (
+                <Card className="glass border-border/50">
+                  <CardHeader>
+                    <CardTitle className="text-base">File Hashes</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {scanData.threatIntelligence.hashes.md5 && (
+                      <div>
+                        <Label className="text-xs text-muted-foreground">MD5</Label>
+                        <p className="font-mono text-sm break-all">{scanData.threatIntelligence.hashes.md5}</p>
+                      </div>
+                    )}
+                    {scanData.threatIntelligence.hashes.sha1 && (
+                      <div>
+                        <Label className="text-xs text-muted-foreground">SHA1</Label>
+                        <p className="font-mono text-sm break-all">{scanData.threatIntelligence.hashes.sha1}</p>
+                      </div>
+                    )}
+                    {scanData.threatIntelligence.hashes.sha256 && (
+                      <div>
+                        <Label className="text-xs text-muted-foreground">SHA256</Label>
+                        <p className="font-mono text-sm break-all">{scanData.threatIntelligence.hashes.sha256}</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+            </>
+          )}
+        </TabsContent>
+
+        <TabsContent value="vulnerabilities" className="space-y-3">
           {vulnerabilities.length > 0 ? (
             vulnerabilities.map((vuln, index) => (
               <VulnerabilityCard key={vuln.id || `vuln-${index}-${vuln.name}-${vuln.file}-${vuln.line}`} vuln={vuln} />
@@ -853,6 +1252,517 @@ Now answer the user's question about these scan results: ${messageContent}
               <p className="text-muted-foreground">
                 No vulnerabilities found. Your code appears to be secure! 🎉
               </p>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Threat Intelligence Tab */}
+        <TabsContent value="threatIntelligence" className="space-y-4">
+          {(() => {
+            // Check if threat intelligence data exists and has at least one scanned service
+            const ti = scanData?.threatIntelligence;
+            const hasScannedServices = ti && (
+              ti.virusTotal?.scanned ||
+              ti.malwareBazaar?.scanned ||
+              ti.urlhaus?.scanned ||
+              ti.hybridAnalysis?.scanned ||
+              ti.abuseIPDB?.scanned ||
+              ti.threatFox?.scanned ||
+              ti.hashes
+            );
+
+            if (!hasScannedServices) {
+              return (
+                <div className="p-8 text-center rounded-xl border border-border">
+                  <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                  <p className="text-muted-foreground mb-2">No threat intelligence data available</p>
+                  <p className="text-sm text-muted-foreground">
+                    {scanData?.type === "file" 
+                      ? "Threat intelligence scanning may not have been performed for this file scan, or all services failed to scan."
+                      : scanData?.type === "url"
+                      ? "Threat intelligence scanning may not have been performed for this URL scan, or all services failed to scan."
+                      : scanData?.type === "ip"
+                      ? "Threat intelligence scanning may not have been performed for this IP scan, or all services failed to scan."
+                      : "Threat intelligence scanning may not have been performed for this scan, or all services failed to scan."}
+                  </p>
+                </div>
+              );
+            }
+
+            return (
+              <>
+                {/* VirusTotal */}
+                {scanData.threatIntelligence.virusTotal?.scanned && (
+                <Card className="glass border-border/50">
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4" />
+                      VirusTotal
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {scanData.threatIntelligence.virusTotal.found ? (
+                      <>
+                        <div className="flex justify-between">
+                          <span>Detection Rate</span>
+                          <Badge variant={scanData.threatIntelligence.virusTotal.positives && scanData.threatIntelligence.virusTotal.positives > 5 ? "destructive" : "default"}>
+                            {scanData.threatIntelligence.virusTotal.positives}/{scanData.threatIntelligence.virusTotal.total} ({scanData.threatIntelligence.virusTotal.detectionRate}%)
+                          </Badge>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Status</span>
+                          <Badge variant={scanData.threatIntelligence.virusTotal.status === "malicious" ? "destructive" : "secondary"}>
+                            {scanData.threatIntelligence.virusTotal.status}
+                          </Badge>
+                        </div>
+                        {scanData.threatIntelligence.virusTotal.typeDescription && (
+                          <div className="flex justify-between">
+                            <span>File Type</span>
+                            <span className="text-sm">{scanData.threatIntelligence.virusTotal.typeDescription}</span>
+                          </div>
+                        )}
+                        {scanData.threatIntelligence.virusTotal.meaningfulName && (
+                          <div>
+                            <Label className="text-xs text-muted-foreground">File Name</Label>
+                            <p className="text-sm font-mono truncate">{scanData.threatIntelligence.virusTotal.meaningfulName}</p>
+                          </div>
+                        )}
+                        {scanData.threatIntelligence.virusTotal.tags && scanData.threatIntelligence.virusTotal.tags.length > 0 && (
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Threat Categories</Label>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {scanData.threatIntelligence.virusTotal.tags.map((tag, idx) => (
+                                <Badge key={idx} variant="outline" className="text-xs">
+                                  {tag}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {scanData.threatIntelligence.virusTotal.permalink && (
+                          <div>
+                            <a href={scanData.threatIntelligence.virusTotal.permalink} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">
+                              View on VirusTotal →
+                            </a>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Hash not found in VirusTotal database</p>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* MalwareBazaar */}
+              {scanData.threatIntelligence.malwareBazaar?.scanned && (
+                <Card className="glass border-border/50">
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4" />
+                      MalwareBazaar
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {scanData.threatIntelligence.malwareBazaar.found ? (
+                      <>
+                        {scanData.threatIntelligence.malwareBazaar.signature && (
+                          <div className="flex justify-between">
+                            <span>Signature</span>
+                            <span className="text-sm font-medium">{scanData.threatIntelligence.malwareBazaar.signature}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between">
+                          <span>File Type</span>
+                          <Badge variant="destructive">{scanData.threatIntelligence.malwareBazaar.fileType || scanData.threatIntelligence.malwareBazaar.malwareType || "Unknown"}</Badge>
+                        </div>
+                        {scanData.threatIntelligence.malwareBazaar.fileTypeMime && (
+                          <div className="flex justify-between">
+                            <span>MIME Type</span>
+                            <span className="text-sm font-mono">{scanData.threatIntelligence.malwareBazaar.fileTypeMime}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between">
+                          <span>Malware Family</span>
+                          <span className="text-sm">{scanData.threatIntelligence.malwareBazaar.malwareFamily || "Unknown"}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Threat Level</span>
+                          <Badge variant={scanData.threatIntelligence.malwareBazaar.threatLevel === "critical" ? "destructive" : "default"}>
+                            {scanData.threatIntelligence.malwareBazaar.threatLevel}
+                          </Badge>
+                        </div>
+                        {scanData.threatIntelligence.malwareBazaar.tags && scanData.threatIntelligence.malwareBazaar.tags.length > 0 && (
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Tags</Label>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {scanData.threatIntelligence.malwareBazaar.tags.map((tag, idx) => (
+                                <Badge key={idx} variant="outline" className="text-xs">
+                                  {tag}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {scanData.threatIntelligence.malwareBazaar.permalink && (
+                          <div>
+                            <a href={scanData.threatIntelligence.malwareBazaar.permalink} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">
+                              View on MalwareBazaar →
+                            </a>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Hash not found in MalwareBazaar database</p>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* URLhaus */}
+              {scanData.threatIntelligence.urlhaus?.scanned && (
+                <Card className="glass border-border/50">
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Shield className="h-4 w-4" />
+                      URLhaus
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {scanData.threatIntelligence.urlhaus.found ? (
+                      <>
+                        <div className="flex justify-between">
+                          <span>Status</span>
+                          <Badge variant={scanData.threatIntelligence.urlhaus.status === "malicious" ? "destructive" : "secondary"}>
+                            {scanData.threatIntelligence.urlhaus.status}
+                          </Badge>
+                        </div>
+                        {scanData.threatIntelligence.urlhaus.threat && (
+                          <div className="flex justify-between">
+                            <span>Threat</span>
+                            <span className="text-sm">{scanData.threatIntelligence.urlhaus.threat}</span>
+                          </div>
+                        )}
+                        {scanData.threatIntelligence.urlhaus.permalink && (
+                          <div>
+                            <a href={scanData.threatIntelligence.urlhaus.permalink} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">
+                              View on URLhaus →
+                            </a>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">URL not found in URLhaus database</p>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Hybrid Analysis */}
+              {scanData.threatIntelligence.hybridAnalysis?.scanned && (
+                <Card className="glass border-border/50">
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4" />
+                      Hybrid Analysis
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {scanData.threatIntelligence.hybridAnalysis.found || scanData.threatIntelligence.hybridAnalysis.verdict ? (
+                      <>
+                        {scanData.threatIntelligence.hybridAnalysis.threatScore !== undefined && (
+                          <div className="flex justify-between">
+                            <span>Threat Score</span>
+                            <Badge variant={scanData.threatIntelligence.hybridAnalysis.threatScore && scanData.threatIntelligence.hybridAnalysis.threatScore >= 80 ? "destructive" : "default"}>
+                              {scanData.threatIntelligence.hybridAnalysis.threatScore || 0}/100
+                            </Badge>
+                          </div>
+                        )}
+                        {scanData.threatIntelligence.hybridAnalysis.verdict && (
+                          <div className="flex justify-between">
+                            <span>Verdict</span>
+                            <Badge variant={scanData.threatIntelligence.hybridAnalysis.verdict === "malicious" ? "destructive" : scanData.threatIntelligence.hybridAnalysis.verdict === "suspicious" ? "default" : "secondary"}>
+                              {scanData.threatIntelligence.hybridAnalysis.verdict}
+                            </Badge>
+                          </div>
+                        )}
+                        {scanData.threatIntelligence.hybridAnalysis.malwareFamily && scanData.threatIntelligence.hybridAnalysis.malwareFamily !== "Unknown" && (
+                          <div className="flex justify-between">
+                            <span>Malware Family</span>
+                            <span className="text-sm">{scanData.threatIntelligence.hybridAnalysis.malwareFamily}</span>
+                          </div>
+                        )}
+                        {scanData.threatIntelligence.hybridAnalysis.permalink && (
+                          <div>
+                            <a href={scanData.threatIntelligence.hybridAnalysis.permalink} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">
+                              View on Hybrid Analysis →
+                            </a>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Not found in Hybrid Analysis database</p>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* AbuseIPDB */}
+              {scanData.threatIntelligence.abuseIPDB?.scanned && (
+                <Card className="glass border-border/50">
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Shield className="h-4 w-4" />
+                      AbuseIPDB
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {scanData.threatIntelligence.abuseIPDB.ip && (
+                      <div>
+                        <Label className="text-xs text-muted-foreground">IP Address</Label>
+                        <p className="font-mono text-sm">{scanData.threatIntelligence.abuseIPDB.ip}</p>
+                      </div>
+                    )}
+                    <div className="flex justify-between">
+                      <span>Abuse Confidence</span>
+                      <Badge variant={scanData.threatIntelligence.abuseIPDB.abuseConfidence && scanData.threatIntelligence.abuseIPDB.abuseConfidence >= 75 ? "destructive" : "secondary"}>
+                        {scanData.threatIntelligence.abuseIPDB.abuseConfidence}%
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Status</span>
+                      <Badge variant={scanData.threatIntelligence.abuseIPDB.status === "malicious" ? "destructive" : "secondary"}>
+                        {scanData.threatIntelligence.abuseIPDB.status}
+                      </Badge>
+                    </div>
+                    {scanData.threatIntelligence.abuseIPDB.totalReports !== undefined && (
+                      <div className="flex justify-between">
+                        <span>Total Reports</span>
+                        <span className="text-sm font-medium">{scanData.threatIntelligence.abuseIPDB.totalReports}</span>
+                      </div>
+                    )}
+                    {scanData.threatIntelligence.abuseIPDB.isp && (
+                      <div>
+                        <Label className="text-xs text-muted-foreground">ISP</Label>
+                        <p className="text-sm">{scanData.threatIntelligence.abuseIPDB.isp}</p>
+                      </div>
+                    )}
+                    {scanData.threatIntelligence.abuseIPDB.countryCode && (
+                      <div className="flex justify-between">
+                        <span>Country</span>
+                        <span className="text-sm">{scanData.threatIntelligence.abuseIPDB.countryCode}</span>
+                      </div>
+                    )}
+                    {scanData.threatIntelligence.abuseIPDB.usageType && (
+                      <div className="flex justify-between">
+                        <span>Usage Type</span>
+                        <span className="text-sm">{scanData.threatIntelligence.abuseIPDB.usageType}</span>
+                      </div>
+                    )}
+                    {scanData.threatIntelligence.abuseIPDB.isWhitelisted !== undefined && (
+                      <div className="flex justify-between">
+                        <span>Whitelisted</span>
+                        <Badge variant={scanData.threatIntelligence.abuseIPDB.isWhitelisted ? "default" : "secondary"}>
+                          {scanData.threatIntelligence.abuseIPDB.isWhitelisted ? "Yes" : "No"}
+                        </Badge>
+                      </div>
+                    )}
+                    {scanData.threatIntelligence.abuseIPDB.permalink && (
+                      <div>
+                        <a href={scanData.threatIntelligence.abuseIPDB.permalink} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">
+                          View on AbuseIPDB →
+                        </a>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* ThreatFox */}
+              {scanData.threatIntelligence.threatFox?.scanned && (
+                <Card className="glass border-border/50">
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4" />
+                      ThreatFox
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {scanData.threatIntelligence.threatFox.found ? (
+                      <>
+                        {scanData.threatIntelligence.threatFox.ioc && (
+                          <div>
+                            <Label className="text-xs text-muted-foreground">IOC</Label>
+                            <p className="font-mono text-sm break-all">{scanData.threatIntelligence.threatFox.ioc}</p>
+                          </div>
+                        )}
+                        {scanData.threatIntelligence.threatFox.iocType && (
+                          <div className="flex justify-between">
+                            <span>IOC Type</span>
+                            <span className="text-sm">{scanData.threatIntelligence.threatFox.iocType}</span>
+                          </div>
+                        )}
+                        {scanData.threatIntelligence.threatFox.threatType && (
+                          <div className="flex justify-between">
+                            <span>Threat Type</span>
+                            <span className="text-sm">{scanData.threatIntelligence.threatFox.threatType}</span>
+                          </div>
+                        )}
+                        {scanData.threatIntelligence.threatFox.malwareFamily && (
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Malware Family</Label>
+                            <p className="text-sm font-medium">{scanData.threatIntelligence.threatFox.malwareFamily}</p>
+                          </div>
+                        )}
+                        {scanData.threatIntelligence.threatFox.confidenceLevel !== undefined && (
+                          <div className="flex justify-between">
+                            <span>Confidence Level</span>
+                            <Badge variant={scanData.threatIntelligence.threatFox.confidenceLevel >= 90 ? "destructive" : "default"}>
+                              {scanData.threatIntelligence.threatFox.confidenceLevel}%
+                            </Badge>
+                          </div>
+                        )}
+                        {scanData.threatIntelligence.threatFox.firstSeen && (
+                          <div className="flex justify-between">
+                            <span>First Seen</span>
+                            <span className="text-sm">{new Date(scanData.threatIntelligence.threatFox.firstSeen).toLocaleDateString()}</span>
+                          </div>
+                        )}
+                        {scanData.threatIntelligence.threatFox.lastSeen && (
+                          <div className="flex justify-between">
+                            <span>Last Seen</span>
+                            <span className="text-sm">{new Date(scanData.threatIntelligence.threatFox.lastSeen).toLocaleDateString()}</span>
+                          </div>
+                        )}
+                        {scanData.threatIntelligence.threatFox.tags && scanData.threatIntelligence.threatFox.tags.length > 0 && (
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Tags</Label>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {scanData.threatIntelligence.threatFox.tags.map((tag, idx) => (
+                                <Badge key={idx} variant="outline" className="text-xs">
+                                  {tag}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {scanData.threatIntelligence.threatFox.permalink && (
+                          <div>
+                            <a href={scanData.threatIntelligence.threatFox.permalink} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">
+                              View on ThreatFox →
+                            </a>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">IOC not found in ThreatFox database</p>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+                {/* File Hashes - Show even if no services scanned */}
+                {scanData.threatIntelligence.hashes && (
+                  <Card className="glass border-border/50">
+                    <CardHeader>
+                      <CardTitle className="text-base">File Hashes</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      {scanData.threatIntelligence.hashes.md5 && (
+                        <div>
+                          <Label className="text-xs text-muted-foreground">MD5</Label>
+                          <p className="font-mono text-sm break-all">{scanData.threatIntelligence.hashes.md5}</p>
+                        </div>
+                      )}
+                      {scanData.threatIntelligence.hashes.sha1 && (
+                        <div>
+                          <Label className="text-xs text-muted-foreground">SHA1</Label>
+                          <p className="font-mono text-sm break-all">{scanData.threatIntelligence.hashes.sha1}</p>
+                        </div>
+                      )}
+                      {scanData.threatIntelligence.hashes.sha256 && (
+                        <div>
+                          <Label className="text-xs text-muted-foreground">SHA256</Label>
+                          <p className="font-mono text-sm break-all">{scanData.threatIntelligence.hashes.sha256}</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
+              {/* AI Threat Intelligence Insights */}
+              {scanData?.threatIntelligenceInsights && (
+                <Card className="glass border-border/50">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText className="h-5 w-5 text-primary" />
+                      AI Threat Intelligence Analysis
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div 
+                      className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground"
+                      dangerouslySetInnerHTML={{ __html: formatAIInsights(scanData.threatIntelligenceInsights) }}
+                    />
+                  </CardContent>
+                </Card>
+              )}
+              </>
+            );
+          })()}
+        </TabsContent>
+
+        {/* AI Security Insights Tab */}
+        <TabsContent value="aiInsights" className="space-y-4">
+          {aiInsights ? (
+            <Card className="glass border-border/50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-primary" />
+                  AI Security Insights
+                </CardTitle>
+                <CardDescription>
+                  Comprehensive AI-powered security analysis and recommendations
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div 
+                  className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground"
+                  dangerouslySetInnerHTML={{ __html: formatAIInsights(aiInsights) }}
+                />
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="p-8 text-center rounded-xl border border-border">
+              <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+              <p className="text-muted-foreground">
+                No AI security insights available for this scan
+              </p>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Recommendations Tab */}
+        <TabsContent value="recommendations" className="space-y-4">
+          {scanData?.overallSecurity?.recommendations && scanData.overallSecurity.recommendations.length > 0 ? (
+            <Card className="glass border-border/50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CheckCircle2 className="h-5 w-5" />
+                  Security Recommendations
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-4">
+                  {scanData.overallSecurity.recommendations.map((rec, index) => (
+                    <RecommendationCard key={index} rec={rec} index={index} />
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="p-8 text-center rounded-xl border border-border">
+              <p className="text-muted-foreground">No recommendations available</p>
             </div>
           )}
         </TabsContent>

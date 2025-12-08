@@ -10,7 +10,8 @@ React frontend application built with Vite, TypeScript, and modern UI components
 - 💬 Real-time AI Chat with streaming
 - 📊 Interactive Dashboard
 - 🔍 Security Scanning (Files, URLs & Repositories)
-- 📄 PDF Report Generation
+- 🛡️ Threat Intelligence Integration (VirusTotal, MalwareBazaar, URLhaus, Hybrid Analysis, AbuseIPDB, ThreatFox)
+- 📄 PDF Report Generation (with threat intelligence)
 - 📱 Fully Responsive Design
 - 💳 Subscription Management
 - 📚 Repository Documentation
@@ -147,11 +148,21 @@ client/
 - Compliance impact analysis
 - AI-powered remediation
 - Code comparison (original vs. fixed)
+- **Threat intelligence integration**:
+  - VirusTotal malware detection
+  - MalwareBazaar hash lookups
+  - URLhaus URL reputation
+  - Hybrid Analysis sandbox reports
+  - AbuseIPDB IP reputation
+  - ThreatFox IOC checking
+- **Unified security reports** with overall security score
+- **File hash generation** (MD5, SHA1, SHA256)
 - Scan chat for Q&A
-- PDF report generation
+- PDF report generation (includes threat intelligence)
 
 ### Subscription Management
 - View current plan and usage
+- **Threat intelligence usage tracking** (daily limits per service)
 - Upgrade/downgrade options
 - Razorpay payment integration
 - Cancellation with refund eligibility
@@ -220,7 +231,8 @@ client/
 - `/admin/models` - AI model management (protected)
 - `/admin/content` - Content management (protected)
 - `/admin/system` - System monitoring (protected)
-- `/admin/settings` - System settings (protected)
+- `/admin/settings` - System settings including threat intelligence (protected)
+- `/admin/pricing` - Pricing plan management (protected, super-admin only)
 - `/admin/reports` - Reports and exports (protected)
 - `/admin/logs` - Admin activity logs (protected)
 
@@ -255,7 +267,8 @@ The frontend includes a comprehensive admin dashboard for managing the platform.
 - AI model configuration
 - Content moderation (scans, documentation, conversations)
 - System health monitoring
-- Settings configuration
+- Settings configuration (including threat intelligence enable/disable)
+- **Pricing plan management** with threat intelligence limits
 - Reports generation
 - Admin activity audit logs
 
@@ -272,6 +285,49 @@ npm run build
 ```
 
 Output will be in `dist/` directory.
+
+## 🚀 Deployment
+
+### Vercel Deployment
+
+1. **Import Project**
+   - Go to [Vercel Dashboard](https://vercel.com/dashboard)
+   - Click "Add New Project"
+   - Import GitHub repository
+
+2. **Configuration**
+   - **Framework Preset**: Vite
+   - **Root Directory**: `client`
+   - **Build Command**: `npm run build`
+   - **Output Directory**: `dist`
+
+3. **Environment Variables**
+   ```bash
+   VITE_API_BASE_URL=https://your-backend-url.onrender.com
+   VITE_GOOGLE_REDIRECT_URI=https://your-app.vercel.app/auth/google/callback
+   VITE_GITHUB_REDIRECT_URI=https://your-app.vercel.app/auth/github/callback
+   ```
+
+4. **Deploy**
+   - Vercel auto-deploys on push to main branch
+   - View logs in Vercel dashboard
+
+### Alternative Platforms
+
+- **Netlify**: Similar to Vercel, great for static sites
+- **Cloudflare Pages**: Fast CDN, free tier available
+- **AWS Amplify**: AWS-native frontend hosting
+- **GitHub Pages**: Free for public repositories
+
+### Production Checklist
+
+- [ ] Set correct `VITE_API_BASE_URL`
+- [ ] Update OAuth redirect URIs
+- [ ] Enable HTTPS (automatic on Vercel)
+- [ ] Test all features in production
+- [ ] Set up analytics (optional)
+
+For detailed deployment instructions, see **[DEPLOYMENT.md](../DEPLOYMENT.md)**
 
 ## License
 

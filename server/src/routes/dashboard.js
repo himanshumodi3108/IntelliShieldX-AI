@@ -89,10 +89,11 @@ router.get("/stats", optionalAuthenticate, async (req, res, next) => {
       return res.status(404).json({ error: "User not found" });
     }
 
-    // Get scan statistics from actual Scan model
+    // Get scan statistics from actual Scan model (include deleted scans for accurate count)
     const totalScans = await Scan.countDocuments({
       userId: req.user.userId,
       status: "completed",
+      // Note: We count all scans including deleted ones to maintain accurate statistics
     });
 
     const totalChatMessages = user.usage?.chatMessages || 0;

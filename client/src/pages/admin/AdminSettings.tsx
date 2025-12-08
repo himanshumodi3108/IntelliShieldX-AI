@@ -14,7 +14,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Loader2, CheckCircle2, XCircle, Settings, CreditCard, Mail, Shield, Edit, Save } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Settings, CreditCard, Mail, Shield, Edit, Save, Bug, AlertTriangle } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import adminApi from "@/lib/adminApi";
 import { toast } from "sonner";
 import { useAdminAuth } from "@/contexts/AdminAuthContext";
@@ -536,6 +537,265 @@ export default function AdminSettings() {
                         <span className="font-medium">{settings.features.guestChatLimit || 2}</span>
                       </div>
                     </>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Threat Intelligence Settings */}
+            {settings.threatIntelligence && (
+              <Card className="glass border-border">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <Bug className="h-5 w-5" />
+                        Threat Intelligence Services
+                      </CardTitle>
+                      <CardDescription className="mt-1">
+                        Enable or disable threat intelligence services for security scanning
+                      </CardDescription>
+                    </div>
+                    {isSuperAdmin && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEdit("threatIntelligence")}
+                      >
+                        <Edit className="h-4 w-4 mr-2" />
+                        Edit
+                      </Button>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {editingCategory === "threatIntelligence" ? (
+                    <div className="space-y-6">
+                      {/* VirusTotal */}
+                      <div className="space-y-3 p-4 rounded-lg border border-border bg-secondary/30">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <AlertTriangle className="h-4 w-4 text-orange-500" />
+                            <Label htmlFor="virusTotalEnabled" className="text-base font-semibold cursor-pointer">
+                              VirusTotal
+                            </Label>
+                          </div>
+                          <Switch
+                            id="virusTotalEnabled"
+                            checked={editFormData.virusTotal?.enabled !== false}
+                            onCheckedChange={(checked) =>
+                              setEditFormData({
+                                ...editFormData,
+                                virusTotal: { ...editFormData.virusTotal, enabled: checked },
+                              })
+                            }
+                          />
+                        </div>
+                        <div className="text-sm text-muted-foreground ml-6">
+                          <p>Primary file/URL/hash scanning</p>
+                          <p className="mt-1">
+                            Status: {settings.threatIntelligence.virusTotal.configured ? (
+                              <Badge variant="default" className="ml-1">Configured</Badge>
+                            ) : (
+                              <Badge variant="secondary" className="ml-1">Not Configured</Badge>
+                            )}
+                          </p>
+                          <p className="text-xs mt-1">Free tier: 4 requests/minute, 500 requests/day</p>
+                        </div>
+                      </div>
+
+                      {/* MalwareBazaar */}
+                      <div className="space-y-3 p-4 rounded-lg border border-border bg-secondary/30">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Bug className="h-4 w-4 text-purple-500" />
+                            <Label htmlFor="malwareBazaarEnabled" className="text-base font-semibold cursor-pointer">
+                              MalwareBazaar
+                            </Label>
+                          </div>
+                          <Switch
+                            id="malwareBazaarEnabled"
+                            checked={editFormData.malwareBazaar?.enabled !== false}
+                            onCheckedChange={(checked) =>
+                              setEditFormData({
+                                ...editFormData,
+                                malwareBazaar: { ...editFormData.malwareBazaar, enabled: checked },
+                              })
+                            }
+                          />
+                        </div>
+                        <div className="text-sm text-muted-foreground ml-6">
+                          <p>Hash lookups and threat intelligence</p>
+                          <p className="mt-1">
+                            Status: {settings.threatIntelligence.malwareBazaar.configured ? (
+                              <Badge variant="default" className="ml-1">API Key Set</Badge>
+                            ) : (
+                              <Badge variant="outline" className="ml-1">No Key (Works without key)</Badge>
+                            )}
+                          </p>
+                          <p className="text-xs mt-1">Free, unlimited (API key optional)</p>
+                        </div>
+                      </div>
+
+                      {/* URLhaus */}
+                      <div className="space-y-3 p-4 rounded-lg border border-border bg-secondary/30">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Shield className="h-4 w-4 text-blue-500" />
+                            <Label htmlFor="urlhausEnabled" className="text-base font-semibold cursor-pointer">
+                              URLhaus
+                            </Label>
+                          </div>
+                          <Switch
+                            id="urlhausEnabled"
+                            checked={editFormData.urlhaus?.enabled !== false}
+                            onCheckedChange={(checked) =>
+                              setEditFormData({
+                                ...editFormData,
+                                urlhaus: { ...editFormData.urlhaus, enabled: checked },
+                              })
+                            }
+                          />
+                        </div>
+                        <div className="text-sm text-muted-foreground ml-6">
+                          <p>URL reputation checking</p>
+                          <p className="text-xs mt-1">Free, unlimited, no API key required</p>
+                        </div>
+                      </div>
+
+                      {/* Hybrid Analysis */}
+                      <div className="space-y-3 p-4 rounded-lg border border-border bg-secondary/30">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <AlertTriangle className="h-4 w-4 text-green-500" />
+                            <Label htmlFor="hybridAnalysisEnabled" className="text-base font-semibold cursor-pointer">
+                              Hybrid Analysis
+                            </Label>
+                          </div>
+                          <Switch
+                            id="hybridAnalysisEnabled"
+                            checked={editFormData.hybridAnalysis?.enabled !== false}
+                            onCheckedChange={(checked) =>
+                              setEditFormData({
+                                ...editFormData,
+                                hybridAnalysis: { ...editFormData.hybridAnalysis, enabled: checked },
+                              })
+                            }
+                          />
+                        </div>
+                        <div className="text-sm text-muted-foreground ml-6">
+                          <p>Additional file analysis and sandbox reports</p>
+                          <p className="mt-1">
+                            Status: {settings.threatIntelligence.hybridAnalysis.configured ? (
+                              <Badge variant="default" className="ml-1">Configured</Badge>
+                            ) : (
+                              <Badge variant="secondary" className="ml-1">Not Configured</Badge>
+                            )}
+                          </p>
+                          <p className="text-xs mt-1">Free tier: 100 submissions/day</p>
+                        </div>
+                      </div>
+
+                      {/* AbuseIPDB */}
+                      <div className="space-y-3 p-4 rounded-lg border border-border bg-secondary/30">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Shield className="h-4 w-4 text-red-500" />
+                            <Label htmlFor="abuseIPDBEnabled" className="text-base font-semibold cursor-pointer">
+                              AbuseIPDB
+                            </Label>
+                          </div>
+                          <Switch
+                            id="abuseIPDBEnabled"
+                            checked={editFormData.abuseIPDB?.enabled !== false}
+                            onCheckedChange={(checked) =>
+                              setEditFormData({
+                                ...editFormData,
+                                abuseIPDB: { ...editFormData.abuseIPDB, enabled: checked },
+                              })
+                            }
+                          />
+                        </div>
+                        <div className="text-sm text-muted-foreground ml-6">
+                          <p>IP reputation checking</p>
+                          <p className="mt-1">
+                            Status: {settings.threatIntelligence.abuseIPDB.configured ? (
+                              <Badge variant="default" className="ml-1">Configured</Badge>
+                            ) : (
+                              <Badge variant="secondary" className="ml-1">Not Configured</Badge>
+                            )}
+                          </p>
+                          <p className="text-xs mt-1">Free tier: 1,000 queries/day</p>
+                        </div>
+                      </div>
+
+                      {/* ThreatFox */}
+                      <div className="space-y-3 p-4 rounded-lg border border-border bg-secondary/30">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Bug className="h-4 w-4 text-yellow-500" />
+                            <Label htmlFor="threatFoxEnabled" className="text-base font-semibold cursor-pointer">
+                              ThreatFox
+                            </Label>
+                          </div>
+                          <Switch
+                            id="threatFoxEnabled"
+                            checked={editFormData.threatFox?.enabled !== false}
+                            onCheckedChange={(checked) =>
+                              setEditFormData({
+                                ...editFormData,
+                                threatFox: { ...editFormData.threatFox, enabled: checked },
+                              })
+                            }
+                          />
+                        </div>
+                        <div className="text-sm text-muted-foreground ml-6">
+                          <p>IOC (Indicators of Compromise) checking</p>
+                          <p className="text-xs mt-1">Free, unlimited, no API key required</p>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2 pt-2">
+                        <Button onClick={handleSave} size="sm">
+                          <Save className="h-4 w-4 mr-2" />
+                          Save
+                        </Button>
+                        <Button onClick={handleCancel} variant="outline" size="sm">
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {Object.entries(settings.threatIntelligence).map(([service, config]: [string, any]) => (
+                        <div key={service} className="flex items-center justify-between p-3 rounded-lg border border-border bg-secondary/30">
+                          <div className="flex items-center gap-3">
+                            <span className="capitalize font-medium">
+                              {service === "virusTotal" ? "VirusTotal" :
+                               service === "malwareBazaar" ? "MalwareBazaar" :
+                               service === "urlhaus" ? "URLhaus" :
+                               service === "hybridAnalysis" ? "Hybrid Analysis" :
+                               service === "abuseIPDB" ? "AbuseIPDB" :
+                               service === "threatFox" ? "ThreatFox" : service}
+                            </span>
+                            {!config.configured && service !== "urlhaus" && service !== "threatFox" && (
+                              <Badge variant="secondary" className="text-xs">Not Configured</Badge>
+                            )}
+                          </div>
+                          {config.enabled ? (
+                            <Badge variant="default" className="flex items-center gap-1">
+                              <CheckCircle2 className="h-3 w-3" />
+                              Enabled
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="flex items-center gap-1">
+                              <XCircle className="h-3 w-3" />
+                              Disabled
+                            </Badge>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </CardContent>
               </Card>

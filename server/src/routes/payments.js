@@ -237,6 +237,15 @@ router.post("/verify-payment", async (req, res, next) => {
 
     // Update user plan and subscription details
     const limits = await getPlanLimits(plan);
+    
+    // Check if this is a renewal or upgrade
+    // Renewal: User had an active subscription and is renewing/upgrading
+    // Upgrade: User is moving to a higher tier plan
+    const hadPreviousSubscription = !!user.subscriptionId;
+    const isRenewal = hadPreviousSubscription && subscription._id.toString() === user.subscriptionId.toString();
+    const isUpgrade = hadPreviousSubscription && user.plan !== plan;
+    const shouldResetUsage = isRenewal || isUpgrade;
+    
     user.plan = plan;
     user.subscriptionId = subscription._id;
     user.subscriptionStatus = "active";
@@ -244,6 +253,24 @@ router.post("/verify-payment", async (req, res, next) => {
     user.usage.documentationLimit = limits.documentation;
     user.usage.scansLimit = limits.scans;
     user.usage.chatMessagesLimit = limits.chatMessages;
+    
+    // Reset usage counts on renewal or upgrade (fresh quota for new subscription period)
+    // Note: Dashboard analysis will still show actual real data from all scans (including deleted ones)
+    // This is because scans are stored separately and not deleted, only marked as deleted
+    if (shouldResetUsage) {
+      user.usage.scans = 0;
+      user.usage.chatMessages = 0;
+      user.usage.documentation = 0;
+      // Reset threat intelligence daily usage counts
+      if (user.usage.threatIntelligence) {
+        user.usage.threatIntelligence.virusTotal = 0;
+        user.usage.threatIntelligence.hybridAnalysis = 0;
+        user.usage.threatIntelligence.abuseIPDB = 0;
+        user.usage.threatIntelligence.lastResetDate = new Date();
+      }
+      // Note: repositoryCount (maxRepositories) is NOT reset - it's a lifetime maximum for price-based model
+    }
+    
     await user.save();
 
     // Send subscription confirmation email
@@ -326,11 +353,25 @@ router.get("/subscription", async (req, res, next) => {
       },
       usage: {
         ...user.usage,
-        repositories: repositoryCount,
+        repositories: repositoryCount, // Current active count for display
+        maxRepositories: user.usage.repositoryCount || 0, // Maximum ever connected (for limit checking)
+        threatIntelligence: user.usage.threatIntelligence || {
+          virusTotal: 0,
+          hybridAnalysis: 0,
+          abuseIPDB: 0,
+        },
       },
       limits: {
         ...limits,
         repositories: limits.repositories || Infinity,
+        threatIntelligence: limits.threatIntelligence || {
+          virusTotal: 0,
+          hybridAnalysis: 0,
+          abuseIPDB: 0,
+          malwareBazaar: false,
+          urlhaus: false,
+          threatFox: false,
+        },
       },
     });
   } catch (error) {

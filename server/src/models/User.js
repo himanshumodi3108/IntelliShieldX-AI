@@ -58,6 +58,13 @@ const userSchema = new mongoose.Schema(
       chatMessagesLimit: { type: Number, default: 100 },
       documentation: { type: Number, default: 0 },
       documentationLimit: { type: Number, default: 1 }, // Free tier: 1
+      repositoryCount: { type: Number, default: 0 }, // Current connected repositories
+      threatIntelligence: {
+        virusTotal: { type: Number, default: 0 }, // Daily usage count
+        hybridAnalysis: { type: Number, default: 0 }, // Daily usage count
+        abuseIPDB: { type: Number, default: 0 }, // Daily usage count
+        lastResetDate: { type: Date, default: Date.now }, // Track when daily limits were last reset
+      },
     },
     phone: {
       type: String,

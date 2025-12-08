@@ -45,6 +45,56 @@ const pricingPlanSchema = new mongoose.Schema(
         type: Number,
         default: 100,
       },
+      threatIntelligence: {
+        virusTotal: {
+          enabled: {
+            type: Boolean,
+            default: false, // Service enabled for this plan
+          },
+          limit: {
+            type: Number,
+            default: 0, // Daily limit (0 = disabled, -1 = unlimited)
+          },
+        },
+        hybridAnalysis: {
+          enabled: {
+            type: Boolean,
+            default: false,
+          },
+          limit: {
+            type: Number,
+            default: 0,
+          },
+        },
+        abuseIPDB: {
+          enabled: {
+            type: Boolean,
+            default: false,
+          },
+          limit: {
+            type: Number,
+            default: 0,
+          },
+        },
+        malwareBazaar: {
+          enabled: {
+            type: Boolean,
+            default: false, // Free unlimited service
+          },
+        },
+        urlhaus: {
+          enabled: {
+            type: Boolean,
+            default: false, // Free unlimited service
+          },
+        },
+        threatFox: {
+          enabled: {
+            type: Boolean,
+            default: false, // Free unlimited service
+          },
+        },
+      },
     },
     features: [String],
     isActive: {

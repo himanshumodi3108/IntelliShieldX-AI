@@ -20,12 +20,15 @@ import paymentRoutes from "./routes/payments.js";
 import adminRoutes from "./routes/admin/index.js";
 import { initializeRazorpay } from "./services/razorpayService.js";
 import { reinitializeEmailService } from "./services/emailService.js";
+import { cleanupService } from "./services/cleanupService.js";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middleware
 app.use(cors());
+// Note: express.json() and express.urlencoded() automatically skip multipart/form-data requests
+// Multer will handle multipart/form-data parsing and populate req.body with fields
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -81,6 +84,12 @@ connectDB()
     if (!emailInitialized) {
       console.warn("⚠️  Email service initialization failed. Check your SMTP configuration in .env");
     }
+
+    // Initialize cleanup service for temporary extraction directories
+    const maxAgeHours = parseInt(process.env.CLEANUP_MAX_AGE_HOURS || "24", 10);
+    const cleanupIntervalMinutes = parseInt(process.env.CLEANUP_INTERVAL_MINUTES || "360", 10); // Default: 6 hours
+    cleanupService.start(maxAgeHours, cleanupIntervalMinutes);
+    console.log(`🧹 Cleanup service initialized (max age: ${maxAgeHours}h, interval: ${cleanupIntervalMinutes}min)`);
 
     app.listen(PORT, () => {
       console.log(`🚀 IntelliShieldX Backend running on port ${PORT}`);

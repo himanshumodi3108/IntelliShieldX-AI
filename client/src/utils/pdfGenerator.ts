@@ -243,6 +243,76 @@ export interface Vulnerability {
   complianceImpact?: string;
 }
 
+export interface ThreatIntelligence {
+  hashes?: {
+    md5?: string;
+    sha1?: string;
+    sha256?: string;
+  };
+  virusTotal?: {
+    scanned: boolean;
+    found?: boolean;
+    positives?: number;
+    total?: number;
+    detectionRate?: number;
+    status?: "malicious" | "suspicious" | "clean" | "unknown";
+    tags?: string[];
+    typeDescription?: string;
+    meaningfulName?: string;
+  };
+  malwareBazaar?: {
+    scanned: boolean;
+    found?: boolean;
+    malwareType?: string;
+    fileType?: string;
+    fileTypeMime?: string;
+    malwareFamily?: string;
+    signature?: string;
+    threatLevel?: "critical" | "high" | "medium" | "low";
+    tags?: string[];
+  };
+  urlhaus?: {
+    scanned: boolean;
+    found?: boolean;
+    status?: "malicious" | "suspicious" | "clean" | "unknown";
+    threat?: string;
+  };
+  hybridAnalysis?: {
+    scanned: boolean;
+    found?: boolean;
+    threatScore?: number;
+    verdict?: string;
+    malwareFamily?: string;
+  };
+  abuseIPDB?: {
+    scanned: boolean;
+    abuseConfidence?: number;
+    status?: "malicious" | "suspicious" | "clean" | "unknown";
+  };
+  threatFox?: {
+    scanned: boolean;
+    found?: boolean;
+  };
+}
+
+export interface OverallSecurity {
+  status: "critical" | "high" | "medium" | "low" | "safe";
+  score: number;
+  summary: string;
+  recommendations?: Array<string | {
+    title: string;
+    type?: string;
+    severity?: string;
+    symptoms?: string[];
+    removalSteps?: string[];
+    prevention?: string[];
+    description?: string;
+    impact?: string;
+    malwareFamily?: string;
+    [key: string]: any;
+  }>;
+}
+
 export interface ScanReportData {
   scanId?: string;
   target?: string;
@@ -256,9 +326,12 @@ export interface ScanReportData {
     owaspTop10?: number;
   };
   aiInsights?: string;
+  threatIntelligenceInsights?: string;
   scanDuration?: number;
   filesAnalyzed?: number;
   createdAt?: string | Date;
+  threatIntelligence?: ThreatIntelligence;
+  overallSecurity?: OverallSecurity;
 }
 
 export interface DocumentationReportData {
@@ -1005,6 +1078,546 @@ export const generateScanReportPDF = (scanData: ScanReportData): void => {
       });
     }
 
+    yPosition += 5;
+  }
+
+  // Overall Security Assessment
+  if (scanData.overallSecurity) {
+    checkNewPage(30);
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Overall Security Assessment", margin, yPosition);
+    yPosition += 12;
+
+    const securityBoxStartY = yPosition;
+    let securityBoxHeight = 0;
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    
+    // Security Score
+    doc.setFont("helvetica", "bold");
+    doc.text("Security Score:", margin + 3, yPosition);
+    doc.setFont("helvetica", "normal");
+    doc.text(`${scanData.overallSecurity.score}/100`, margin + 60, yPosition);
+    yPosition += 7;
+    securityBoxHeight += 7;
+
+    // Status
+    doc.setFont("helvetica", "bold");
+    doc.text("Status:", margin + 3, yPosition);
+    doc.setFont("helvetica", "normal");
+    doc.text(scanData.overallSecurity.status.toUpperCase(), margin + 60, yPosition);
+    yPosition += 7;
+    securityBoxHeight += 7;
+
+    // Summary
+    if (scanData.overallSecurity.summary) {
+      doc.setFont("helvetica", "bold");
+      doc.text("Summary:", margin + 3, yPosition);
+      yPosition += 7;
+      securityBoxHeight += 7;
+      doc.setFont("helvetica", "normal");
+      const summaryLines = splitText(scanData.overallSecurity.summary, maxWidth - 6, 10);
+      summaryLines.forEach((line) => {
+        checkNewPage(6);
+        doc.text(line, margin + 3, yPosition);
+        yPosition += 6;
+        securityBoxHeight += 6;
+      });
+    }
+
+    // Draw background box
+    doc.setFillColor(250, 250, 250);
+    doc.roundedRect(margin, securityBoxStartY - 2, maxWidth, securityBoxHeight + 4, 2, 2, "F");
+    
+    // Redraw text
+    doc.setTextColor(0, 0, 0);
+    yPosition = securityBoxStartY;
+    doc.setFont("helvetica", "bold");
+    doc.text("Security Score:", margin + 3, yPosition);
+    doc.setFont("helvetica", "normal");
+    doc.text(`${scanData.overallSecurity.score}/100`, margin + 60, yPosition);
+    yPosition += 7;
+    doc.setFont("helvetica", "bold");
+    doc.text("Status:", margin + 3, yPosition);
+    doc.setFont("helvetica", "normal");
+    doc.text(scanData.overallSecurity.status.toUpperCase(), margin + 60, yPosition);
+    yPosition += 7;
+    if (scanData.overallSecurity.summary) {
+      doc.setFont("helvetica", "bold");
+      doc.text("Summary:", margin + 3, yPosition);
+      yPosition += 7;
+      doc.setFont("helvetica", "normal");
+      const summaryLines = splitText(scanData.overallSecurity.summary, maxWidth - 6, 10);
+      summaryLines.forEach((line) => {
+        doc.text(line, margin + 3, yPosition);
+        yPosition += 6;
+      });
+    }
+
+    yPosition += 8;
+  }
+
+  // Threat Intelligence Section
+  if (scanData.threatIntelligence) {
+    checkNewPage(40);
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Threat Intelligence Results", margin, yPosition);
+    yPosition += 12;
+
+    const ti = scanData.threatIntelligence;
+
+    // File Hashes
+    if (ti.hashes) {
+      checkNewPage(30);
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text("File Hashes", margin, yPosition);
+      yPosition += 8;
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      if (ti.hashes.md5) {
+        doc.text(`MD5: ${ti.hashes.md5}`, margin + 3, yPosition);
+        yPosition += 6;
+      }
+      if (ti.hashes.sha1) {
+        doc.text(`SHA1: ${ti.hashes.sha1}`, margin + 3, yPosition);
+        yPosition += 6;
+      }
+      if (ti.hashes.sha256) {
+        doc.text(`SHA256: ${ti.hashes.sha256}`, margin + 3, yPosition);
+        yPosition += 6;
+      }
+      yPosition += 5;
+    }
+
+    // VirusTotal
+    if (ti.virusTotal?.scanned) {
+      checkNewPage(40);
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text("VirusTotal", margin, yPosition);
+      yPosition += 8;
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      if (ti.virusTotal.found) {
+        doc.text(`Detection Rate: ${ti.virusTotal.positives}/${ti.virusTotal.total} (${ti.virusTotal.detectionRate}%)`, margin + 3, yPosition);
+        yPosition += 6;
+        doc.text(`Status: ${ti.virusTotal.status || "Unknown"}`, margin + 3, yPosition);
+        yPosition += 6;
+        if (ti.virusTotal.typeDescription) {
+          doc.text(`File Type: ${ti.virusTotal.typeDescription}`, margin + 3, yPosition);
+          yPosition += 6;
+        }
+        if (ti.virusTotal.meaningfulName) {
+          const nameLines = splitText(`File Name: ${ti.virusTotal.meaningfulName}`, maxWidth - 6, 9);
+          nameLines.forEach((line) => {
+            doc.text(line, margin + 3, yPosition);
+            yPosition += 5;
+          });
+        }
+        if (ti.virusTotal.tags && ti.virusTotal.tags.length > 0) {
+          doc.text(`Threat Categories: ${ti.virusTotal.tags.join(", ")}`, margin + 3, yPosition);
+          yPosition += 6;
+        }
+      } else {
+        doc.text("Hash not found in VirusTotal database", margin + 3, yPosition);
+        yPosition += 6;
+      }
+      yPosition += 5;
+    }
+
+    // MalwareBazaar
+    if (ti.malwareBazaar?.scanned && ti.malwareBazaar.found) {
+      checkNewPage(40);
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text("MalwareBazaar", margin, yPosition);
+      yPosition += 8;
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      if (ti.malwareBazaar.signature) {
+        doc.text(`Signature: ${ti.malwareBazaar.signature}`, margin + 3, yPosition);
+        yPosition += 6;
+      }
+      doc.text(`File Type: ${ti.malwareBazaar.fileType || ti.malwareBazaar.malwareType || "Unknown"}`, margin + 3, yPosition);
+      yPosition += 6;
+      if (ti.malwareBazaar.fileTypeMime) {
+        doc.text(`MIME Type: ${ti.malwareBazaar.fileTypeMime}`, margin + 3, yPosition);
+        yPosition += 6;
+      }
+      doc.text(`Malware Family: ${ti.malwareBazaar.malwareFamily || "Unknown"}`, margin + 3, yPosition);
+      yPosition += 6;
+      doc.text(`Threat Level: ${ti.malwareBazaar.threatLevel || "Unknown"}`, margin + 3, yPosition);
+      yPosition += 6;
+      if (ti.malwareBazaar.tags && ti.malwareBazaar.tags.length > 0) {
+        doc.text(`Tags: ${ti.malwareBazaar.tags.join(", ")}`, margin + 3, yPosition);
+        yPosition += 6;
+      }
+      yPosition += 5;
+    }
+
+    // URLhaus
+    if (ti.urlhaus?.scanned && ti.urlhaus.found) {
+      checkNewPage(20);
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text("URLhaus", margin, yPosition);
+      yPosition += 8;
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Status: ${ti.urlhaus.status || "Unknown"}`, margin + 3, yPosition);
+      yPosition += 6;
+      if (ti.urlhaus.threat) {
+        doc.text(`Threat: ${ti.urlhaus.threat}`, margin + 3, yPosition);
+        yPosition += 6;
+      }
+      yPosition += 5;
+    }
+
+    // Hybrid Analysis
+    if (ti.hybridAnalysis?.scanned && (ti.hybridAnalysis.found || ti.hybridAnalysis.verdict)) {
+      checkNewPage(25);
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text("Hybrid Analysis", margin, yPosition);
+      yPosition += 8;
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      if (ti.hybridAnalysis.threatScore !== undefined) {
+        doc.text(`Threat Score: ${ti.hybridAnalysis.threatScore}/100`, margin + 3, yPosition);
+        yPosition += 6;
+      }
+      if (ti.hybridAnalysis.verdict) {
+        doc.text(`Verdict: ${ti.hybridAnalysis.verdict}`, margin + 3, yPosition);
+        yPosition += 6;
+      }
+      if (ti.hybridAnalysis.malwareFamily && ti.hybridAnalysis.malwareFamily !== "Unknown") {
+        doc.text(`Malware Family: ${ti.hybridAnalysis.malwareFamily}`, margin + 3, yPosition);
+        yPosition += 6;
+      }
+      yPosition += 5;
+    }
+
+    // AbuseIPDB
+    if (ti.abuseIPDB?.scanned) {
+      checkNewPage(20);
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text("AbuseIPDB", margin, yPosition);
+      yPosition += 8;
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      if (ti.abuseIPDB.abuseConfidence !== undefined) {
+        doc.text(`Abuse Confidence: ${ti.abuseIPDB.abuseConfidence}%`, margin + 3, yPosition);
+        yPosition += 6;
+      }
+      if (ti.abuseIPDB.status) {
+        doc.text(`Status: ${ti.abuseIPDB.status}`, margin + 3, yPosition);
+        yPosition += 6;
+      }
+      yPosition += 5;
+    }
+
+    yPosition += 5;
+  }
+
+  // Threat Intelligence Insights
+  if (scanData.threatIntelligenceInsights) {
+    checkNewPage(40);
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("AI Threat Intelligence Analysis", margin, yPosition);
+    yPosition += 12;
+
+    // Parse and format markdown content (similar to AI Insights)
+    const insights = scanData.threatIntelligenceInsights;
+    const lines = insights.split('\n');
+    
+    let inList = false;
+    let listItems: string[] = [];
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      
+      if (!line) {
+        if (inList && listItems.length > 0) {
+          listItems.forEach((item) => {
+            checkNewPage(6);
+            doc.setFontSize(9);
+            doc.setFont("helvetica", "normal");
+            doc.text(`• ${item}`, margin + 5, yPosition);
+            yPosition += 5;
+          });
+          listItems = [];
+          inList = false;
+        }
+        yPosition += 3;
+        continue;
+      }
+
+      // Headers
+      if (line.startsWith('### ')) {
+        if (inList) {
+          listItems.forEach((item) => {
+            checkNewPage(6);
+            doc.setFontSize(9);
+            doc.setFont("helvetica", "normal");
+            doc.text(`• ${item}`, margin + 5, yPosition);
+            yPosition += 5;
+          });
+          listItems = [];
+          inList = false;
+        }
+        checkNewPage(10);
+        yPosition += 3;
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "bold");
+        const headerText = line.substring(4).replace(/\*\*/g, '').replace(/\*/g, '');
+        doc.text(headerText, margin, yPosition);
+        yPosition += 7;
+        continue;
+      }
+      
+      if (line.startsWith('## ')) {
+        if (inList) {
+          listItems.forEach((item) => {
+            checkNewPage(6);
+            doc.setFontSize(9);
+            doc.setFont("helvetica", "normal");
+            doc.text(`• ${item}`, margin + 5, yPosition);
+            yPosition += 5;
+          });
+          listItems = [];
+          inList = false;
+        }
+        checkNewPage(12);
+        yPosition += 5;
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        const headerText = line.substring(3).replace(/\*\*/g, '').replace(/\*/g, '');
+        doc.text(headerText, margin, yPosition);
+        yPosition += 8;
+        continue;
+      }
+
+      // Numbered lists
+      const numberedMatch = line.match(/^(\d+)\.\s+(.*)$/);
+      if (numberedMatch) {
+        if (!inList) {
+          inList = true;
+          listItems = [];
+        }
+        const itemText = numberedMatch[2]
+          .replace(/\*\*(.*?)\*\*/g, "$1")
+          .replace(/\*(.*?)\*/g, "$1")
+          .replace(/`(.*?)`/g, "$1");
+        listItems.push(itemText);
+        continue;
+      }
+
+      // Bullet points
+      const bulletMatch = line.match(/^[-*]\s+(.*)$/);
+      if (bulletMatch) {
+        if (!inList) {
+          inList = true;
+          listItems = [];
+        }
+        const itemText = bulletMatch[1]
+          .replace(/\*\*(.*?)\*\*/g, "$1")
+          .replace(/\*(.*?)\*/g, "$1")
+          .replace(/`(.*?)`/g, "$1");
+        listItems.push(itemText);
+        continue;
+      }
+
+      // Regular paragraph
+      if (inList) {
+        listItems.forEach((item) => {
+          checkNewPage(6);
+          doc.setFontSize(9);
+          doc.setFont("helvetica", "normal");
+          doc.text(`• ${item}`, margin + 5, yPosition);
+          yPosition += 5;
+        });
+        listItems = [];
+        inList = false;
+        yPosition += 2;
+      }
+
+      const cleanLine = line
+        .replace(/\*\*(.*?)\*\*/g, "$1")
+        .replace(/\*(.*?)\*/g, "$1")
+        .replace(/`(.*?)`/g, "$1")
+        .replace(/```[\s\S]*?```/g, "");
+
+      if (cleanLine.trim()) {
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        const textLines = splitText(cleanLine, maxWidth, 10);
+        textLines.forEach((textLine) => {
+          checkNewPage(6);
+          doc.text(textLine, margin, yPosition);
+          yPosition += 5;
+        });
+        yPosition += 2;
+      }
+    }
+
+    // Render any remaining list items
+    if (inList && listItems.length > 0) {
+      listItems.forEach((item) => {
+        checkNewPage(6);
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+        doc.text(`• ${item}`, margin + 5, yPosition);
+        yPosition += 5;
+      });
+    }
+
+    yPosition += 5;
+  }
+
+  // Recommendations
+  if (scanData.overallSecurity?.recommendations && scanData.overallSecurity.recommendations.length > 0) {
+    checkNewPage(40);
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Security Recommendations", margin, yPosition);
+    yPosition += 12;
+
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    scanData.overallSecurity.recommendations.forEach((rec, index) => {
+      const recTitle = typeof rec === 'string' ? rec : rec.title;
+      const recData = typeof rec === 'string' ? null : rec;
+
+      // Recommendation title
+      checkNewPage(10);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.text(`${index + 1}. ${recTitle}`, margin + 3, yPosition);
+      yPosition += 7;
+
+      // Severity badge if available
+      if (recData?.severity) {
+        const severityColors: Record<string, [number, number, number]> = {
+          critical: [220, 53, 69],
+          high: [255, 152, 0],
+          medium: [255, 193, 7],
+          low: [0, 123, 255],
+        };
+        const color = severityColors[recData.severity] || [128, 128, 128];
+        doc.setFillColor(color[0], color[1], color[2]);
+        doc.roundedRect(margin + 3, yPosition - 4, 30, 5, 1, 1, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(8);
+        doc.text(recData.severity.toUpperCase(), margin + 5, yPosition);
+        doc.setTextColor(0, 0, 0);
+        yPosition += 8;
+      }
+
+      // Description
+      if (recData?.description) {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        const descLines = splitText(recData.description, maxWidth - 6, 9);
+        descLines.forEach((line) => {
+          checkNewPage(5);
+          doc.text(line, margin + 6, yPosition);
+          yPosition += 5;
+        });
+        yPosition += 2;
+      }
+
+      // Symptoms
+      if (recData?.symptoms && recData.symptoms.length > 0) {
+        checkNewPage(15);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.text("Symptoms:", margin + 6, yPosition);
+        yPosition += 6;
+        doc.setFont("helvetica", "normal");
+        recData.symptoms.forEach((symptom) => {
+          checkNewPage(5);
+          doc.text(`• ${symptom}`, margin + 10, yPosition);
+          yPosition += 5;
+        });
+        yPosition += 2;
+      }
+
+      // Impact
+      if (recData?.impact) {
+        checkNewPage(10);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.text("Potential Impact:", margin + 6, yPosition);
+        yPosition += 6;
+        doc.setFont("helvetica", "normal");
+        const impactLines = splitText(recData.impact, maxWidth - 6, 9);
+        impactLines.forEach((line) => {
+          checkNewPage(5);
+          doc.text(line, margin + 10, yPosition);
+          yPosition += 5;
+        });
+        yPosition += 2;
+      }
+
+      // Removal Steps
+      if (recData?.removalSteps && recData.removalSteps.length > 0) {
+        checkNewPage(15);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.text("Removal Steps:", margin + 6, yPosition);
+        yPosition += 6;
+        doc.setFont("helvetica", "normal");
+        recData.removalSteps.forEach((step, stepIdx) => {
+          checkNewPage(5);
+          doc.text(`${stepIdx + 1}. ${step}`, margin + 10, yPosition);
+          yPosition += 5;
+        });
+        yPosition += 2;
+      }
+
+      // Prevention
+      if (recData?.prevention && recData.prevention.length > 0) {
+        checkNewPage(15);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.text("Prevention:", margin + 6, yPosition);
+        yPosition += 6;
+        doc.setFont("helvetica", "normal");
+        recData.prevention.forEach((prevent) => {
+          checkNewPage(5);
+          doc.text(`• ${prevent}`, margin + 10, yPosition);
+          yPosition += 5;
+        });
+        yPosition += 2;
+      }
+
+      // Malware Family
+      if (recData?.malwareFamily) {
+        checkNewPage(6);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.setTextColor(100, 100, 100);
+        doc.text(`Malware Family: ${recData.malwareFamily}`, margin + 6, yPosition);
+        doc.setTextColor(0, 0, 0);
+        yPosition += 6;
+      }
+
+      yPosition += 5;
+      
+      // Separator line between recommendations
+      if (index < scanData.overallSecurity.recommendations.length - 1) {
+        checkNewPage(3);
+        doc.setDrawColor(200, 200, 200);
+        doc.line(margin, yPosition, pageWidth - margin, yPosition);
+        yPosition += 5;
+      }
+    });
     yPosition += 5;
   }
 

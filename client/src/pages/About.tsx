@@ -41,6 +41,11 @@ const keyFeatures = [
     description: "Comprehensive vulnerability detection across code, URLs, and repositories with AI-powered analysis.",
   },
   {
+    icon: Shield,
+    title: "Threat Intelligence",
+    description: "Multi-source malware detection integrating VirusTotal, MalwareBazaar, URLhaus, Hybrid Analysis, AbuseIPDB, and ThreatFox for comprehensive threat assessment.",
+  },
+  {
     icon: Bot,
     title: "AI Remediation",
     description: "Automated code fixes and security recommendations powered by advanced AI models.",
@@ -63,7 +68,7 @@ const keyFeatures = [
   {
     icon: FileText,
     title: "Professional Reports",
-    description: "Generate downloadable PDF reports with detailed findings, remediation steps, and compliance information.",
+    description: "Generate downloadable PDF reports with detailed findings, threat intelligence results, remediation steps, and compliance information.",
   },
 ];
 

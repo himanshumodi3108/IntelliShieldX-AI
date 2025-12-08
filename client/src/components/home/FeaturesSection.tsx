@@ -8,7 +8,9 @@ import {
     ShieldCheck,
     Zap,
     BookOpen,
-    MessageSquare
+    MessageSquare,
+    Bug,
+    Shield
   } from "lucide-react";
   
   const features = [
@@ -25,6 +27,18 @@ import {
       color: "text-accent",
     },
     {
+      icon: Bug,
+      title: "Threat Intelligence",
+      description: "Multi-source malware detection with VirusTotal, MalwareBazaar, URLhaus, Hybrid Analysis, AbuseIPDB, and ThreatFox integration.",
+      color: "text-destructive",
+    },
+    {
+      icon: Shield,
+      title: "Unified Security Reports",
+      description: "Comprehensive security assessment combining AI code analysis with threat intelligence for complete protection.",
+      color: "text-primary",
+    },
+    {
       icon: Bot,
       title: "AI Remediation",
       description: "Get AI-generated secure code replacements and best-practice recommendations instantly.",
@@ -39,7 +53,7 @@ import {
     {
       icon: FileText,
       title: "PDF Reports",
-      description: "Download professional reports with charts, remediation steps, signatures, and QR codes.",
+      description: "Download professional reports with charts, remediation steps, threat intelligence, and security scores.",
       color: "text-destructive",
     },
     {

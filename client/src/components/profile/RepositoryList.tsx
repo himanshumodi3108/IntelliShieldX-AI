@@ -168,8 +168,8 @@ export function RepositoryList() {
         // Reload repositories to show updated scan results
         await loadRepositories();
         
-        // Optionally navigate to scan results page
-        // navigate(`/history?scanId=${result.scanId}`);
+        // Redirect to scan results page
+        navigate(`/scan?scanId=${result.scanId}`);
       } else {
         toast.success("Repository scan initiated successfully");
         await loadRepositories();

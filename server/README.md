@@ -17,6 +17,8 @@ Node.js/Express backend API server for IntelliShieldX platform.
 - Subscription management
 - Repository management (GitHub integration)
 - Documentation generation
+- **Threat intelligence integration** (VirusTotal, MalwareBazaar, URLhaus, Hybrid Analysis, AbuseIPDB, ThreatFox)
+- **Unified security assessment** combining AI analysis with threat intelligence
 - Rate limiting for guest users
 - Admin dashboard API endpoints
 - Admin authentication and authorization
@@ -103,6 +105,16 @@ See `.env.example` for all required environment variables.
 - `GST_RATE` - GST rate percentage (default: 18)
 - `TRANSACTION_FEE_RATE` - Transaction fee percentage (default: 2)
 
+### Threat Intelligence Services (Optional)
+- `VIRUSTOTAL_API_KEY` - VirusTotal API key (recommended)
+- `VIRUSTOTAL_RATE_LIMIT_PER_MINUTE` - Rate limit for VirusTotal (default: 4)
+- `MALWAREBAZAAR_API_KEY` - MalwareBazaar Auth-Key (optional, get from https://bazaar.abuse.ch/api/)
+- `HYBRID_ANALYSIS_API_KEY` - Hybrid Analysis API key (optional)
+- `ABUSEIPDB_API_KEY` - AbuseIPDB API key (optional)
+- `THREATFOX_API_KEY` - ThreatFox Auth-Key (optional, get from https://threatfox.abuse.ch/api/)
+- Note: URLhaus works without API key (free, unlimited)
+- Get MalwareBazaar Auth-Key from: https://bazaar.abuse.ch/api/
+
 ## API Endpoints
 
 ### Authentication
@@ -128,10 +140,10 @@ See `.env.example` for all required environment variables.
 - `GET /api/models/available` - Get available models (supports optional authentication)
 
 ### Scans
-- `POST /api/scan/upload` - Upload files for scanning
-- `POST /api/scan/url` - Scan URL
-- `POST /api/scan/repository` - Scan GitHub repository
-- `GET /api/scan/:id` - Get scan results
+- `POST /api/scan/upload` - Upload files for scanning (includes threat intelligence)
+- `POST /api/scan/url` - Scan URL (includes threat intelligence)
+- `POST /api/repositories/:id/scan` - Scan GitHub repository (includes threat intelligence)
+- `GET /api/scan/:id` - Get scan results (includes threat intelligence data)
 - `GET /api/scan` - Get scan history (paginated, with search and filters)
 - `DELETE /api/scan/:id` - Delete scan
 - `POST /api/scan/:id/chat` - Add chat message to scan
@@ -142,6 +154,7 @@ See `.env.example` for all required environment variables.
 - `GET /api/repositories` - Get connected repositories
 - `POST /api/repositories/connect` - Connect GitHub account
 - `POST /api/repositories/:id/connect` - Connect specific repository
+- `POST /api/repositories/:id/scan` - Scan repository (includes threat intelligence)
 - `DELETE /api/repositories/:id` - Disconnect repository
 
 ### Documentation
@@ -201,6 +214,13 @@ See `.env.example` for all required environment variables.
 - `GET /api/admin/system/health` - System health check
 - `GET /api/admin/system/metrics` - System metrics
 - `GET /api/admin/settings` - Get settings
+- `PUT /api/admin/settings` - Update settings (super-admin only)
+- `PUT /api/admin/settings/:category` - Update specific category (super-admin only)
+- `GET /api/admin/pricing` - Get pricing plans
+- `GET /api/admin/pricing/:id` - Get pricing plan details
+- `POST /api/admin/pricing` - Create pricing plan (super-admin only)
+- `PUT /api/admin/pricing/:id` - Update pricing plan (super-admin only)
+- `DELETE /api/admin/pricing/:id` - Delete pricing plan (super-admin only)
 - `GET /api/admin/reports/revenue` - Revenue report
 - `GET /api/admin/reports/users` - User report
 - `GET /api/admin/reports/usage` - Usage report
@@ -261,7 +281,15 @@ server/
 │   │   ├── razorpayService.js
 │   │   ├── passwordResetService.js
 │   │   ├── guestRateLimitService.js
-│   │   └── adminLogService.js
+│   │   ├── adminLogService.js
+│   │   ├── hashService.js
+│   │   ├── unifiedThreatIntelligenceService.js
+│   │   ├── virusTotalService.js
+│   │   ├── malwareBazaarService.js
+│   │   ├── urlhausService.js
+│   │   ├── hybridAnalysisService.js
+│   │   ├── abuseIPDBService.js
+│   │   └── threatFoxService.js
 │   └── index.js         # Entry point
 ├── uploads/             # Uploaded files
 ├── scripts/             # Utility scripts
@@ -325,7 +353,7 @@ The email service sends notifications for:
 - OAuth provider details
 - MFA settings
 - Subscription plan and status
-- Usage statistics (scans, documentation, chat messages)
+- Usage statistics (scans, documentation, chat messages, threat intelligence)
 
 ### Conversation
 - Chat conversations
@@ -339,6 +367,15 @@ The email service sends notifications for:
 - AI insights and remediation
 - Chat messages
 - Compliance impacts
+- **Threat intelligence data**:
+  - File hashes (MD5, SHA1, SHA256)
+  - VirusTotal results
+  - MalwareBazaar results
+  - URLhaus results
+  - Hybrid Analysis results
+  - AbuseIPDB results
+  - ThreatFox results
+- **Overall security assessment** (score, status, recommendations)
 
 ### Subscription
 - Plan details
@@ -369,6 +406,29 @@ The email service sends notifications for:
 - Admin action audit trail
 - IP address and user agent tracking
 - Resource and action details
+
+## Threat Intelligence Services
+
+The platform integrates multiple threat intelligence services for comprehensive security analysis:
+
+### Services
+- **VirusTotal**: File/URL/hash scanning with 70+ antivirus engines (requires API key)
+- **MalwareBazaar**: Hash lookups and threat intelligence (works without key, optional key for higher limits)
+- **URLhaus**: URL reputation checking (free, unlimited, no key required)
+- **Hybrid Analysis**: Advanced file analysis and sandbox reports (requires API key)
+- **AbuseIPDB**: IP reputation and abuse tracking (requires API key)
+- **ThreatFox**: IOC (Indicators of Compromise) checking (free, unlimited, no key required)
+
+### Features
+- Unified threat intelligence orchestration
+- Automatic hash generation (MD5, SHA1, SHA256)
+- Overall security score calculation (0-100)
+- Plan-based rate limiting
+- Admin controls to enable/disable services
+- Integrated with file, URL, and repository scans
+
+### API Key Setup
+See `documents/API_KEY_GUIDE.md` for detailed instructions on obtaining API keys for Hybrid Analysis and AbuseIPDB.
 
 ## Admin Dashboard
 
@@ -416,6 +476,52 @@ node scripts/seed-admin.js admin@intellishieldx.ai admin123 "Admin User" super_a
 # Run tests (when implemented)
 npm test
 ```
+
+## 🚀 Deployment
+
+### Render Deployment
+
+1. **Create Web Service**
+   - Go to [Render Dashboard](https://dashboard.render.com)
+   - Click "New +" → "Web Service"
+   - Connect GitHub repository
+   - Set root directory to `server`
+
+2. **Configuration**
+   - **Build Command**: `npm install`
+   - **Start Command**: `npm start`
+   - **Environment**: Node
+
+3. **Environment Variables**
+   Add all required environment variables (see Configuration section above)
+   - `MONGODB_URI` (MongoDB Atlas connection string)
+   - `JWT_SECRET` (32+ character secret)
+   - `PYTHON_ENGINE_URL` (AI model service URL)
+   - All API keys (VirusTotal, Hybrid Analysis, etc.)
+
+4. **Deploy**
+   - Render will auto-deploy on push to main branch
+   - View logs in Render dashboard
+
+### Alternative Platforms
+
+- **Railway**: Simple deployment, built-in database
+- **Fly.io**: Global edge deployment
+- **DigitalOcean App Platform**: Auto-scaling PaaS
+- **AWS Elastic Beanstalk**: AWS-native deployment
+- **Google Cloud Run**: Serverless containers
+
+### Production Checklist
+
+- [ ] Set `NODE_ENV=production`
+- [ ] Use strong `JWT_SECRET` (32+ characters)
+- [ ] Enable HTTPS (automatic on Render)
+- [ ] Configure MongoDB Atlas IP whitelist
+- [ ] Set up monitoring and alerts
+- [ ] Enable rate limiting
+- [ ] Regular backups
+
+For detailed deployment instructions, see **[DEPLOYMENT.md](./DEPLOYMENT.md)**
 
 ## License
 

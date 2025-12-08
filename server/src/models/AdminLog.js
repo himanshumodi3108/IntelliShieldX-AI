@@ -49,3 +49,5 @@ adminLogSchema.index({ resource: 1, createdAt: -1 });
 export default mongoose.model("AdminLog", adminLogSchema);
 
 
+
+

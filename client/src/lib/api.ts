@@ -369,9 +369,26 @@ class ApiClient {
   }
 
   // Scan API
-  async uploadFiles(files: File[]) {
+  async uploadFiles(files: File[], passwords?: Record<string, string>) {
     const formData = new FormData();
     files.forEach((file) => formData.append("files", file));
+    
+    // Add passwords if provided (for password-protected files)
+    if (passwords && Object.keys(passwords).length > 0) {
+      const passwordsJson = JSON.stringify(passwords);
+      formData.append("passwords", passwordsJson);
+      console.log("[API] Uploading files with passwords:", {
+        fileCount: files.length,
+        passwordCount: Object.keys(passwords).length,
+        passwordsJson: passwordsJson.substring(0, 100) + "...", // Log first 100 chars
+        formDataKeys: Array.from(formData.keys())
+      });
+    } else {
+      console.log("[API] Uploading files without passwords:", {
+        fileCount: files.length,
+        formDataKeys: Array.from(formData.keys())
+      });
+    }
 
     const url = `${this.baseUrl}/scan/upload`;
     const headers: HeadersInit = {};
@@ -394,10 +411,24 @@ class ApiClient {
     return response.json();
   }
 
-  async scanUrl(url: string) {
+  async scanUrl(url?: string, hash?: string, hashType?: string) {
+    const body: { url?: string; hash?: string; hashType?: string } = {};
+    // Only include url if it's provided and not empty
+    if (url && url.trim() !== "") {
+      body.url = url.trim();
+    }
+    // Only include hash if it's provided and not empty
+    if (hash && hash.trim() !== "") {
+      body.hash = hash.trim();
+      body.hashType = hashType || "sha256";
+    }
+    
+    // Debug logging (commented out for production)
+    // console.log("scanUrl API call:", { url, hash, hashType, body });
+    
     return this.request("/scan/url", {
       method: "POST",
-      body: JSON.stringify({ url }),
+      body: JSON.stringify(body),
     });
   }
 
@@ -690,8 +721,9 @@ export const modelsApi = {
 };
 
 export const scanApi = {
-  uploadFiles: (files: File[]) => apiClient.uploadFiles(files),
-  scanUrl: (url: string) => apiClient.scanUrl(url),
+  uploadFiles: (files: File[], passwords?: Record<string, string>) => apiClient.uploadFiles(files, passwords),
+  scanUrl: (url?: string, hash?: string, hashType?: "sha256" | "sha1" | "md5") => 
+    apiClient.scanUrl(url, hash, hashType),
   getScanHistory: (page?: number, limit?: number, search?: string, type?: string) =>
     apiClient.getScanHistory(page, limit, search, type),
   getScanResults: (scanId: string) => apiClient.getScanResults(scanId),

@@ -25,9 +25,9 @@ export function UrlScanner({ onScan, isScanning }: UrlScannerProps) {
           <Globe className="h-6 w-6 text-accent" />
         </div>
         <div>
-          <h3 className="text-lg font-semibold">URL Scanner</h3>
+          <h3 className="text-lg font-semibold">URL & IP Scanner</h3>
           <p className="text-sm text-muted-foreground">
-            Scan any website for security vulnerabilities
+            Scan any website URL or IP address for security vulnerabilities
           </p>
         </div>
       </div>
@@ -36,8 +36,8 @@ export function UrlScanner({ onScan, isScanning }: UrlScannerProps) {
         <div className="relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
           <Input
-            type="url"
-            placeholder="https://example.com"
+            type="text"
+            placeholder="https://example.com, example.com, or 192.168.1.1"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             className="pl-12 h-14 text-lg bg-secondary/50 border-border focus:border-primary"
@@ -69,12 +69,12 @@ export function UrlScanner({ onScan, isScanning }: UrlScannerProps) {
         <p className="text-sm font-medium mb-2">Scan includes:</p>
         <div className="grid grid-cols-2 gap-2">
           {[
+            "Threat Intelligence",
             "SQL Injection",
             "XSS Detection",
             "CSRF Validation",
             "SSL/TLS Check",
             "Header Analysis",
-            "CMS Detection",
           ].map((item) => (
             <div key={item} className="flex items-center gap-2 text-sm text-muted-foreground">
               <div className="w-1.5 h-1.5 rounded-full bg-primary" />

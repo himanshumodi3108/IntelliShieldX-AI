@@ -82,7 +82,8 @@ build/
 
 OAUTH_SETUP.md
 scripts/
-#scripts/seed-models.js
-#scripts/seed-admin.js
-#scripts/initPricingPlans.js
-#\server\scripts\seed-models.js
+SECURITY.md
+
+# Temporary extraction directories
+temp_extractions/
+DEPLOYMENT.md

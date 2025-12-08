@@ -51,13 +51,27 @@ interface Subscription {
     documentation: number;
     scans: number;
     chatMessages: number;
-    repositories?: number;
+    repositories?: number; // Current active repositories
+    maxRepositories?: number; // Maximum repositories ever connected (for limit checking)
+    threatIntelligence?: {
+      virusTotal?: number;
+      hybridAnalysis?: number;
+      abuseIPDB?: number;
+    };
   };
   limits: {
     documentation: number;
     scans: number;
     chatMessages: number;
     repositories?: number;
+    threatIntelligence?: {
+      virusTotal?: number;
+      hybridAnalysis?: number;
+      abuseIPDB?: number;
+      malwareBazaar?: boolean;
+      urlhaus?: boolean;
+      threatFox?: boolean;
+    };
   };
 }
 
@@ -401,22 +415,151 @@ export function SubscriptionManagement() {
                       {subscription.usage.repositories || 0} / {subscription.limits.repositories === Infinity ? "∞" : subscription.limits.repositories}
                     </span>
                   </div>
+                  {subscription.usage.maxRepositories !== undefined && subscription.usage.maxRepositories > (subscription.usage.repositories || 0) && (
+                    <p className="text-xs text-muted-foreground mb-1">
+                      Max ever connected: {subscription.usage.maxRepositories} (limit based on max)
+                    </p>
+                  )}
                   <div className="h-2 bg-secondary rounded-full overflow-hidden">
                     <div
                       className={cn(
                         "h-full transition-all",
-                        (subscription.usage.repositories || 0) / (subscription.limits.repositories || 1) > 0.8
+                        calculateUsagePercentage(
+                          subscription.usage.maxRepositories !== undefined ? subscription.usage.maxRepositories : (subscription.usage.repositories || 0),
+                          subscription.limits.repositories as number
+                        ) > 80
                           ? "bg-red-500"
-                          : (subscription.usage.repositories || 0) / (subscription.limits.repositories || 1) > 0.5
+                          : calculateUsagePercentage(
+                              subscription.usage.maxRepositories !== undefined ? subscription.usage.maxRepositories : (subscription.usage.repositories || 0),
+                              subscription.limits.repositories as number
+                            ) > 50
                           ? "bg-yellow-500"
                           : "bg-green-500"
                       )}
                       style={{
-                        width: `${Math.min(((subscription.usage.repositories || 0) / (subscription.limits.repositories || 1)) * 100, 100)}%`,
+                        width: `${Math.min(
+                          calculateUsagePercentage(
+                            subscription.usage.maxRepositories !== undefined ? subscription.usage.maxRepositories : (subscription.usage.repositories || 0),
+                            subscription.limits.repositories as number
+                          ),
+                          100
+                        )}%`,
                       }}
                     />
                   </div>
                 </div>
+              )}
+
+              {/* Threat Intelligence Usage */}
+              {subscription.limits.threatIntelligence && (
+                <>
+                  <div className="pt-2 mt-2 border-t border-border">
+                    <h4 className="text-sm font-semibold mb-3 text-muted-foreground">Threat Intelligence</h4>
+                  </div>
+                  
+                  {subscription.limits.threatIntelligence.virusTotal !== undefined && subscription.limits.threatIntelligence.virusTotal > 0 && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm text-muted-foreground">VirusTotal Scans (Daily)</span>
+                        <span className="text-sm font-medium">
+                          {subscription.usage.threatIntelligence?.virusTotal || 0} / {subscription.limits.threatIntelligence.virusTotal === -1 ? "∞" : subscription.limits.threatIntelligence.virusTotal}
+                        </span>
+                      </div>
+                      <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                        <div
+                          className={cn(
+                            "h-full transition-all",
+                            subscription.limits.threatIntelligence.virusTotal === -1 ? "bg-green-500" :
+                            ((subscription.usage.threatIntelligence?.virusTotal || 0) / subscription.limits.threatIntelligence.virusTotal) > 0.8
+                              ? "bg-red-500"
+                              : ((subscription.usage.threatIntelligence?.virusTotal || 0) / subscription.limits.threatIntelligence.virusTotal) > 0.5
+                              ? "bg-yellow-500"
+                              : "bg-green-500"
+                          )}
+                          style={{
+                            width: subscription.limits.threatIntelligence.virusTotal === -1 ? "100%" : `${Math.min(((subscription.usage.threatIntelligence?.virusTotal || 0) / subscription.limits.threatIntelligence.virusTotal) * 100, 100)}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {subscription.limits.threatIntelligence.hybridAnalysis !== undefined && subscription.limits.threatIntelligence.hybridAnalysis > 0 && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm text-muted-foreground">Hybrid Analysis (Daily)</span>
+                        <span className="text-sm font-medium">
+                          {subscription.usage.threatIntelligence?.hybridAnalysis || 0} / {subscription.limits.threatIntelligence.hybridAnalysis === -1 ? "∞" : subscription.limits.threatIntelligence.hybridAnalysis}
+                        </span>
+                      </div>
+                      <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                        <div
+                          className={cn(
+                            "h-full transition-all",
+                            subscription.limits.threatIntelligence.hybridAnalysis === -1 ? "bg-green-500" :
+                            ((subscription.usage.threatIntelligence?.hybridAnalysis || 0) / subscription.limits.threatIntelligence.hybridAnalysis) > 0.8
+                              ? "bg-red-500"
+                              : ((subscription.usage.threatIntelligence?.hybridAnalysis || 0) / subscription.limits.threatIntelligence.hybridAnalysis) > 0.5
+                              ? "bg-yellow-500"
+                              : "bg-green-500"
+                          )}
+                          style={{
+                            width: subscription.limits.threatIntelligence.hybridAnalysis === -1 ? "100%" : `${Math.min(((subscription.usage.threatIntelligence?.hybridAnalysis || 0) / subscription.limits.threatIntelligence.hybridAnalysis) * 100, 100)}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {subscription.limits.threatIntelligence.abuseIPDB !== undefined && subscription.limits.threatIntelligence.abuseIPDB > 0 && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm text-muted-foreground">AbuseIPDB Queries (Daily)</span>
+                        <span className="text-sm font-medium">
+                          {subscription.usage.threatIntelligence?.abuseIPDB || 0} / {subscription.limits.threatIntelligence.abuseIPDB === -1 ? "∞" : subscription.limits.threatIntelligence.abuseIPDB}
+                        </span>
+                      </div>
+                      <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                        <div
+                          className={cn(
+                            "h-full transition-all",
+                            subscription.limits.threatIntelligence.abuseIPDB === -1 ? "bg-green-500" :
+                            ((subscription.usage.threatIntelligence?.abuseIPDB || 0) / subscription.limits.threatIntelligence.abuseIPDB) > 0.8
+                              ? "bg-red-500"
+                              : ((subscription.usage.threatIntelligence?.abuseIPDB || 0) / subscription.limits.threatIntelligence.abuseIPDB) > 0.5
+                              ? "bg-yellow-500"
+                              : "bg-green-500"
+                          )}
+                          style={{
+                            width: subscription.limits.threatIntelligence.abuseIPDB === -1 ? "100%" : `${Math.min(((subscription.usage.threatIntelligence?.abuseIPDB || 0) / subscription.limits.threatIntelligence.abuseIPDB) * 100, 100)}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Free unlimited services status */}
+                  <div className="pt-2 mt-2 space-y-1">
+                    {subscription.limits.threatIntelligence.malwareBazaar && (
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>MalwareBazaar</span>
+                        <Badge variant="outline" className="text-xs">Enabled (Unlimited)</Badge>
+                      </div>
+                    )}
+                    {subscription.limits.threatIntelligence.urlhaus && (
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>URLhaus</span>
+                        <Badge variant="outline" className="text-xs">Enabled (Unlimited)</Badge>
+                      </div>
+                    )}
+                    {subscription.limits.threatIntelligence.threatFox && (
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>ThreatFox</span>
+                        <Badge variant="outline" className="text-xs">Enabled (Unlimited)</Badge>
+                      </div>
+                    )}
+                  </div>
+                </>
               )}
             </div>
           </div>

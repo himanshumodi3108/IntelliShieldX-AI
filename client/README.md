@@ -286,49 +286,6 @@ npm run build
 
 Output will be in `dist/` directory.
 
-## 🚀 Deployment
-
-### Vercel Deployment
-
-1. **Import Project**
-   - Go to [Vercel Dashboard](https://vercel.com/dashboard)
-   - Click "Add New Project"
-   - Import GitHub repository
-
-2. **Configuration**
-   - **Framework Preset**: Vite
-   - **Root Directory**: `client`
-   - **Build Command**: `npm run build`
-   - **Output Directory**: `dist`
-
-3. **Environment Variables**
-   ```bash
-   VITE_API_BASE_URL=https://your-backend-url.onrender.com
-   VITE_GOOGLE_REDIRECT_URI=https://your-app.vercel.app/auth/google/callback
-   VITE_GITHUB_REDIRECT_URI=https://your-app.vercel.app/auth/github/callback
-   ```
-
-4. **Deploy**
-   - Vercel auto-deploys on push to main branch
-   - View logs in Vercel dashboard
-
-### Alternative Platforms
-
-- **Netlify**: Similar to Vercel, great for static sites
-- **Cloudflare Pages**: Fast CDN, free tier available
-- **AWS Amplify**: AWS-native frontend hosting
-- **GitHub Pages**: Free for public repositories
-
-### Production Checklist
-
-- [ ] Set correct `VITE_API_BASE_URL`
-- [ ] Update OAuth redirect URIs
-- [ ] Enable HTTPS (automatic on Vercel)
-- [ ] Test all features in production
-- [ ] Set up analytics (optional)
-
-For detailed deployment instructions, see **[DEPLOYMENT.md](../DEPLOYMENT.md)**
-
 ## License
 
 ISC

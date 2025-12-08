@@ -89,12 +89,17 @@ See `.env.example` for all required environment variables.
 
 ### Email Service (Required for email notifications)
 - `SMTP_HOST` - SMTP server host (e.g., smtp.gmail.com)
-- `SMTP_PORT` - SMTP server port (e.g., 587)
-- `SMTP_SECURE` - Use secure connection (true/false, default: false for port 587)
+- `SMTP_PORT` - SMTP server port (e.g., 587 for STARTTLS, 465 for SSL/TLS)
+- `SMTP_SECURE` - Use SSL/TLS connection (true/false)
+  - **Port 587**: `SMTP_SECURE=false` (uses STARTTLS - connection is still encrypted!)
+  - **Port 465**: `SMTP_SECURE=true` (uses SSL/TLS)
+  - **Auto-detect**: If not set, defaults to `true` for port 465, `false` for others
 - `SMTP_USER` - SMTP username/email
-- `SMTP_PASS` - SMTP password (use app password for Gmail)
+- `SMTP_PASS` - SMTP password (use App Password for Gmail, not regular password)
 - `EMAIL_FROM` - From email address
 - `EMAIL_FROM_NAME` - From name (default: IntelliShieldX)
+
+**Important**: For Gmail, you must use an [App Password](https://support.google.com/accounts/answer/185833) instead of your regular password.
 
 ### Razorpay Payment Gateway (Required for payments)
 - `RAZORPAY_KEY_ID` - Razorpay key ID
@@ -298,9 +303,6 @@ server/
 └── package.json
 ```
 
-## OAuth Setup
-
-See `OAUTH_SETUP.md` for detailed OAuth provider configuration instructions.
 
 ## MFA Setup
 
@@ -427,9 +429,6 @@ The platform integrates multiple threat intelligence services for comprehensive 
 - Admin controls to enable/disable services
 - Integrated with file, URL, and repository scans
 
-### API Key Setup
-See `documents/API_KEY_GUIDE.md` for detailed instructions on obtaining API keys for Hybrid Analysis and AbuseIPDB.
-
 ## Admin Dashboard
 
 The backend includes a comprehensive admin API for managing the platform. See `ADMIN_SETUP.md` for detailed setup instructions.
@@ -476,52 +475,6 @@ node scripts/seed-admin.js admin@intellishieldx.ai admin123 "Admin User" super_a
 # Run tests (when implemented)
 npm test
 ```
-
-## 🚀 Deployment
-
-### Render Deployment
-
-1. **Create Web Service**
-   - Go to [Render Dashboard](https://dashboard.render.com)
-   - Click "New +" → "Web Service"
-   - Connect GitHub repository
-   - Set root directory to `server`
-
-2. **Configuration**
-   - **Build Command**: `npm install`
-   - **Start Command**: `npm start`
-   - **Environment**: Node
-
-3. **Environment Variables**
-   Add all required environment variables (see Configuration section above)
-   - `MONGODB_URI` (MongoDB Atlas connection string)
-   - `JWT_SECRET` (32+ character secret)
-   - `PYTHON_ENGINE_URL` (AI model service URL)
-   - All API keys (VirusTotal, Hybrid Analysis, etc.)
-
-4. **Deploy**
-   - Render will auto-deploy on push to main branch
-   - View logs in Render dashboard
-
-### Alternative Platforms
-
-- **Railway**: Simple deployment, built-in database
-- **Fly.io**: Global edge deployment
-- **DigitalOcean App Platform**: Auto-scaling PaaS
-- **AWS Elastic Beanstalk**: AWS-native deployment
-- **Google Cloud Run**: Serverless containers
-
-### Production Checklist
-
-- [ ] Set `NODE_ENV=production`
-- [ ] Use strong `JWT_SECRET` (32+ characters)
-- [ ] Enable HTTPS (automatic on Render)
-- [ ] Configure MongoDB Atlas IP whitelist
-- [ ] Set up monitoring and alerts
-- [ ] Enable rate limiting
-- [ ] Regular backups
-
-For detailed deployment instructions, see **[DEPLOYMENT.md](./DEPLOYMENT.md)**
 
 ## License
 

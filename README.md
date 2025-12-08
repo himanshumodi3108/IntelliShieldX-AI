@@ -343,11 +343,16 @@ TWILIO_PHONE_NUMBER=your-twilio-phone-number
 # Email Service (SMTP)
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
-SMTP_SECURE=false
+SMTP_SECURE=false  # false for STARTTLS (port 587), true for SSL/TLS (port 465)
 SMTP_USER=your-email@gmail.com
-SMTP_PASS=your-app-password
+SMTP_PASS=your-app-password  # Use App Password for Gmail (not regular password)
 EMAIL_FROM=noreply@intellishieldx.ai
 EMAIL_FROM_NAME=IntelliShieldX
+
+# SMTP_SECURE Explanation:
+# - Port 587: SMTP_SECURE=false (uses STARTTLS - connection is still encrypted!)
+# - Port 465: SMTP_SECURE=true (uses SSL/TLS)
+# - If not set, auto-detects: port 465 = true, others = false
 
 # Razorpay Payment Gateway
 RAZORPAY_KEY_ID=your-razorpay-key-id
@@ -642,6 +647,3 @@ ISC
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
-## 📧 Contact
-
-For questions or support, contact: contact@intellishieldx.ai

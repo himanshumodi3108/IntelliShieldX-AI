@@ -12,7 +12,6 @@ Python Flask service for handling AI model interactions, chat streaming, securit
 - Server-Sent Events (SSE) for streaming
 - OWASP Top 10 vulnerability detection
 - Compliance impact analysis
-- **Note**: Threat intelligence integration is handled by the Node.js backend service, not the Python AI engine
 
 ## Setup
 
@@ -235,59 +234,6 @@ deactivate
 1. Update `llm/model_manager.py` with new model configuration
 2. Add API key to `.env`
 3. Update model access rules based on plans
-
-### Flask Debugger
-
-If you see a debugger PIN in the terminal, you can use it to debug errors interactively. See `DEBUGGER_GUIDE.md` for details.
-
-## 🚀 Deployment
-
-### Render Deployment
-
-1. **Create Web Service**
-   - Go to [Render Dashboard](https://dashboard.render.com)
-   - Click "New +" → "Web Service"
-   - Connect GitHub repository
-   - Set root directory to `model`
-
-2. **Configuration**
-   - **Build Command**: `pip install -r requirements.txt`
-   - **Start Command**: `gunicorn app:app --bind 0.0.0.0:$PORT`
-   - **Environment**: Python 3
-   - **Instance Type**: Free tier (or paid for better performance)
-
-3. **Environment Variables**
-   ```bash
-   FLASK_ENV=production
-   PORT=5000
-   OPENAI_API_KEY=your-openai-key
-   ANTHROPIC_API_KEY=your-anthropic-key
-   GROQ_API_KEY=your-groq-key
-   GOOGLE_API_KEY=your-google-key
-   ```
-
-4. **Update Backend**
-   After deployment, update backend's `PYTHON_ENGINE_URL`:
-   ```
-   PYTHON_ENGINE_URL=https://intellishieldx-ai-model.onrender.com
-   ```
-
-### Alternative Platforms
-
-- **Railway**: Easy Python deployment
-- **Fly.io**: Global edge deployment
-- **Heroku**: Classic PaaS (requires credit card)
-- **Google Cloud Run**: Serverless containers
-- **AWS Elastic Beanstalk**: AWS-native deployment
-
-### Production Recommendations
-
-- Use `gunicorn` for production (included in requirements.txt)
-- Set `FLASK_ENV=production`
-- Monitor memory usage (AI models can be memory-intensive)
-- Consider upgrading to paid tier for better performance
-
-For detailed deployment instructions, see **[DEPLOYMENT.md](../DEPLOYMENT.md)**
 
 ## License
 

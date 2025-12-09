@@ -12,10 +12,20 @@ const initializeEmailService = (silent = false) => {
   // Prioritize EMAIL_FROM over SMTP_USER to avoid using the SMTP account email
   const fromEmail = process.env.EMAIL_FROM || process.env.FROM_EMAIL || "noreply@intellishieldx.ai";
   const fromName = process.env.EMAIL_FROM_NAME || "IntelliShieldX";
-  // Support SMTP_SECURE if provided, otherwise use port-based detection
-  const smtpSecure = process.env.SMTP_SECURE 
-    ? process.env.SMTP_SECURE.toLowerCase() === "true" || process.env.SMTP_SECURE === "1"
-    : smtpPort === 465;
+  
+  // SMTP Security Configuration:
+  // - Port 465: Uses SSL/TLS (secure: true)
+  // - Port 587: Uses STARTTLS (secure: false, but connection is still encrypted via STARTTLS)
+  // - Port 25: Usually unencrypted (secure: false)
+  // If SMTP_SECURE is explicitly set, use it; otherwise auto-detect based on port
+  let smtpSecure;
+  if (process.env.SMTP_SECURE !== undefined) {
+    const secureValue = process.env.SMTP_SECURE.toLowerCase();
+    smtpSecure = secureValue === "true" || secureValue === "1" || secureValue === "yes";
+  } else {
+    // Auto-detect: Port 465 uses SSL/TLS, others use STARTTLS or unencrypted
+    smtpSecure = smtpPort === 465;
+  }
 
   if (!smtpHost || !smtpUser || !smtpPass) {
     if (!silent) {
@@ -27,15 +37,24 @@ const initializeEmailService = (silent = false) => {
   }
 
   try {
-    transporter = nodemailer.createTransport({
+    // Configure transporter based on security mode
+    const transporterConfig = {
       host: smtpHost,
       port: smtpPort,
-      secure: smtpSecure,
+      secure: smtpSecure, // true for SSL/TLS (port 465), false for STARTTLS (port 587)
       auth: {
         user: smtpUser,
         pass: smtpPass,
       },
-    });
+    };
+
+    // For port 587 (STARTTLS), ensure TLS is required
+    // Nodemailer automatically uses STARTTLS when secure: false and port is 587
+    if (!smtpSecure && smtpPort === 587) {
+      transporterConfig.requireTLS = true; // Require TLS upgrade via STARTTLS
+    }
+
+    transporter = nodemailer.createTransport(transporterConfig);
 
     if (!silent) {
       console.log(`✅ Email service initialized (${smtpHost}:${smtpPort}, from: ${fromName} <${fromEmail}>)`);

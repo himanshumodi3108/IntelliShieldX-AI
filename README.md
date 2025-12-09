@@ -1,6 +1,7 @@
 # IntelliShieldX – AI Security Analysis & Developer Assistance Platform
 
-IntelliShieldX is a full-stack application that analyzes files, websites, and code repositories to detect security flaws, auto-generate fixes, prepare dynamic reports, and provide a real-time AI-powered Chat Assistant for any security or coding queries.
+## 🌐 IntelliShieldX – Platform Overview
+IntelliShieldX is a hybrid AI security platform that scans files, URLs, repositories, and codebases for vulnerabilities using static analysis, threat intelligence databases, and LLM-based reasoning. It provides auto-remediation, documentation generation, real-time AI chat assistance, subscription-based access control, and comprehensive threat analysis reports.
 
 ## 🎯 Features
 
@@ -591,54 +592,6 @@ npm start
 cd model
 # Activate venv (Windows: venv\Scripts\activate, macOS/Linux: source venv/bin/activate)
 python app.py
-```
-
-## 🚀 Deployment
-
-### Quick Deploy
-
-**Recommended Setup:**
-- **Backend & AI Model**: [Render](https://render.com) (Web Service)
-- **Frontend**: [Vercel](https://vercel.com)
-- **Database**: [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) (Free tier available)
-
-### Deployment Steps
-
-1. **Backend Deployment (Render)**
-   - Create Web Service in Render
-   - Set root directory to `server`
-   - Add environment variables (see `DEPLOYMENT.md`)
-   - Deploy AI model as separate service (root directory: `model`)
-
-2. **Frontend Deployment (Vercel)**
-   - Import GitHub repository
-   - Set root directory to `client`
-   - Add environment variables (API base URL, OAuth redirects)
-   - Deploy automatically on push
-
-3. **Database Setup**
-   - Create MongoDB Atlas cluster (free tier)
-   - Whitelist Render IPs
-   - Add connection string to Render environment variables
-
-### Alternative Platforms
-
-**Backend Alternatives:**
-- Railway, Fly.io, DigitalOcean App Platform, AWS Elastic Beanstalk, Google Cloud Run, Azure App Service
-
-**Frontend Alternatives:**
-- Netlify, Cloudflare Pages, AWS Amplify, GitHub Pages
-
-### Detailed Deployment Guide
-
-See **[DEPLOYMENT.md](./DEPLOYMENT.md)** for:
-- Complete step-by-step deployment instructions
-- Environment variable configuration
-- Security checklist
-- Troubleshooting guide
-- Scaling recommendations
-- Docker deployment options
-
 ## 📝 License
 
 ISC
@@ -646,4 +599,3 @@ ISC
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
-

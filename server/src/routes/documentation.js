@@ -922,19 +922,22 @@ ${documentation.schemas.slice(0, 10).map((s) => `${s.name} (${s.type}) - ${s.des
       });
 
       aiResponse.data.on("end", async () => {
-        if (fullResponse && !isSaving) {
+        // Only save assistant message if we have content
+        if (fullResponse && fullResponse.trim().length > 0 && !isSaving) {
           isSaving = true;
           try {
             // Save assistant message (only once)
             documentation.chatMessages.push({
               role: "assistant",
-              content: fullResponse,
+              content: fullResponse.trim(),
               timestamp: new Date(),
             });
             await documentation.save();
           } catch (error) {
             console.error("Error saving documentation chat message:", error);
           }
+        } else if (!fullResponse || fullResponse.trim().length === 0) {
+          console.warn("No response content received for documentation chat, skipping assistant message save");
         }
         if (!res.headersSent) {
           res.write("data: [DONE]\n\n");

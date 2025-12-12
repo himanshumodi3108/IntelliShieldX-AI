@@ -150,24 +150,46 @@ router.post("/conversations/:id/messages", authenticate, async (req, res, next) 
 
     // Stream AI response
     let fullResponse = "";
-    await chatService.streamResponse(
-      content,
-      modelId || "gpt-3.5-turbo",
-      req.user.plan,
-      (chunk) => {
-        fullResponse += chunk;
-        res.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
-      },
-      true // isAuthenticated = true for authenticated users
-    );
+    let streamingError = null;
+    
+    try {
+      await chatService.streamResponse(
+        content,
+        modelId || "gpt-3.5-turbo",
+        req.user.plan,
+        (chunk) => {
+          if (chunk) {
+            fullResponse += chunk;
+            res.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
+          }
+        },
+        true // isAuthenticated = true for authenticated users
+      );
+    } catch (error) {
+      console.error("Error streaming chat response:", error);
+      streamingError = error;
+      // Send error to client
+      res.write(`data: ${JSON.stringify({ error: error.message || "Failed to generate response" })}\n\n`);
+    }
 
-    // Save assistant message
-    conversation.messages.push({
-      role: "assistant",
-      content: fullResponse,
-      modelId: modelId || "gpt-3.5-turbo",
-    });
-    await conversation.save();
+    // Only save assistant message if we have content
+    if (fullResponse && fullResponse.trim().length > 0) {
+      try {
+        conversation.messages.push({
+          role: "assistant",
+          content: fullResponse.trim(),
+          modelId: modelId || "gpt-3.5-turbo",
+        });
+        await conversation.save();
+      } catch (saveError) {
+        console.error("Error saving assistant message:", saveError);
+        // Don't fail the request if saving fails, but log it
+      }
+    } else if (streamingError) {
+      // If streaming failed and we have no content, remove the user message to keep conversation clean
+      // Or we could save an error message, but for now we'll just not save the assistant message
+      console.warn("No response content received, skipping assistant message save");
+    }
 
     res.write("data: [DONE]\n\n");
     res.end();

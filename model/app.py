@@ -36,7 +36,8 @@ def root():
             "health": "/health",
             "chat": "/api/chat/stream",
             "models": "/api/models/available",
-            "security": "/api/analyze/security"
+            "security": "/api/analyze/security",
+            "threatIntelligence": "/api/analyze/threat-intelligence"
         }
     })
 
@@ -969,6 +970,64 @@ def analyze_documentation():
         print(f"Error in documentation generation: {e}")
         import traceback
         traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/analyze/threat-intelligence", methods=["POST"])
+def analyze_threat_intelligence():
+    """Generate AI insights for threat intelligence analysis"""
+    try:
+        data = request.get_json()
+        prompt = data.get("prompt")
+        model_id = data.get("modelId", "mixtral-8x7b")
+
+        if not prompt:
+            return jsonify({"error": "Prompt is required"}), 400
+
+        try:
+            model_config = model_manager.get_model_config(model_id)
+            client = model_manager.get_client(model_id)
+            
+            if not client or not model_config:
+                return jsonify({"error": f"Model {model_id} not available"}), 400
+
+            # Get actual model name based on provider
+            if model_config["client"] == "groq":
+                actual_model_name = model_config.get("groq_model_name", model_id)
+            elif model_config["client"] == "google":
+                actual_model_name = model_config.get("google_model_name", model_id)
+            else:
+                actual_model_name = model_id
+
+            # Generate insights using the model
+            if model_config["client"] == "groq":
+                response = client.chat.completions.create(
+                    model=actual_model_name,
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": "You are a cybersecurity expert providing threat intelligence analysis. Provide comprehensive, actionable insights without introductions or questions. Start directly with the analysis."
+                        },
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=0.5,
+                )
+                insights = response.choices[0].message.content
+            elif model_config["client"] == "google":
+                import google.generativeai as genai
+                genai_model = genai.GenerativeModel(actual_model_name)
+                system_prompt = "You are a cybersecurity expert providing threat intelligence analysis. Provide comprehensive, actionable insights without introductions or questions. Start directly with the analysis."
+                full_prompt = f"{system_prompt}\n\n{prompt}"
+                response_obj = genai_model.generate_content(full_prompt)
+                insights = response_obj.text
+            else:
+                return jsonify({"error": f"Unsupported client type: {model_config['client']}"}), 400
+
+            return jsonify({"insights": insights})
+        except Exception as e:
+            print(f"Error generating threat intelligence insights: {e}")
+            return jsonify({"error": str(e)}), 500
+    except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 

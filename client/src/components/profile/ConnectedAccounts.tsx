@@ -88,7 +88,7 @@ export function ConnectedAccounts() {
   };
 
   const handleConnectGitHub = () => {
-    const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+    const BACKEND_URL = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || "http://localhost:3001";
     const redirectUrl = encodeURIComponent(window.location.href);
     const token = localStorage.getItem("auth_token");
     

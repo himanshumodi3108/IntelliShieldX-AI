@@ -118,6 +118,7 @@ class ApiClient {
           "1. Open a terminal in the 'server' directory\n" +
           "2. Run: npm run dev\n" +
           "3. Wait for the server to start on http://localhost:3001"
+          // "3. Wait for the server to start on " + API_BASE_URL
         );
         connectionError.name = "ConnectionError";
         throw connectionError;
@@ -796,28 +797,12 @@ export const paymentApi = {
 // Dashboard API - accessible without authentication
 export const dashboardApi = {
   getStats: async () => {
-    const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
-    const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
-    
-    const headers: HeadersInit = {
-      "Content-Type": "application/json",
-    };
-    
-    if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
-    }
-    
-    const response = await fetch(`${baseUrl}/dashboard/stats`, {
-      method: "GET",
-      headers,
-    });
-    
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: response.statusText }));
-      throw new Error(error.error || error.message || `HTTP ${response.status}`);
-    }
-    
-    return response.json();
+    return apiClient.request<{
+      totalScans: number;
+      totalChats: number;
+      totalRepositories: number;
+      recentActivity: any[];
+    }>("/dashboard/stats");
   },
 };
 
